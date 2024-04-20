@@ -38,6 +38,24 @@ impl PacketSequence {
     }
 }
 
+const CONNECTIONLESS_SEQUENCE: c_int = 0xFF_FF_FF_FFu32 as i32;
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub enum PacketKind {
+    Connectionless,
+    Sequenced(PacketSequence),
+}
+
+impl PacketKind {
+    pub fn parse(bits: c_int) -> Self {
+        if CONNECTIONLESS_SEQUENCE == bits {
+            Self::Connectionless
+        } else {
+            Self::Sequenced(PacketSequence::new(bits))
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -53,5 +71,29 @@ mod tests {
             PacketSequence::new_with_number_and_fragment(PacketSequenceNumber::new(69), false);
         assert!(!sequence.is_fragmented());
         assert_eq!(sequence.number(), PacketSequenceNumber::new(69));
+    }
+
+    #[test]
+    fn packetkind_parse() {
+        assert_eq!(
+            PacketKind::parse(0xFF_FF_FF_FFu32 as i32),
+            PacketKind::Connectionless
+        );
+
+        assert_eq!(
+            PacketKind::parse(0x00_00_00_FFu32 as i32),
+            PacketKind::Sequenced(PacketSequence::new_with_number_and_fragment(
+                PacketSequenceNumber::new(0xFF),
+                false
+            ))
+        );
+
+        assert_eq!(
+            PacketKind::parse(0x80_00_00_FFu32 as i32),
+            PacketKind::Sequenced(PacketSequence::new_with_number_and_fragment(
+                PacketSequenceNumber::new(0xFF),
+                true
+            ))
+        );
     }
 }
