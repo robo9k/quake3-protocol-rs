@@ -16,6 +16,8 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 
 #### Connectionless
 
+##### Client
+
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
 | `challengeResponse`     | ❌         | ❌         |
@@ -29,6 +31,8 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 | `getserversResponse`    | ❌         | ❌         |
 | `getserversExtResponse` | ❌         | ❌         |
 
+##### Game server
+
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
 | `getchallenge`          | ❌         | ❌         |
@@ -37,8 +41,33 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 | `getinfo`               | ❌         | ❌         |
 | `getstatus`             | ❌         | ❌         |
 | `ipAuthorize`           | ❌         | ❌         |
+| `rcon`                  | ❌         | ❌         |
+
+##### Update server
+
+| command                 | serialize | deserialize |
+| ----------------------- | :-------: | :---------: |
+| `getmotd`               | ❌         | ❌         |
+
+##### Master server
+
+| command                 | serialize | deserialize |
+| ----------------------- | :-------: | :---------: |
+| `heartbeat`             | ❌         | ❌         |
+| `getservers`            | ❌         | ❌         |
+| `getserversExt`         | ❌         | ❌         |
+
+##### Auth server
+
+| command                 | serialize | deserialize |
+| ----------------------- | :-------: | :---------: |
+| `getKeyAuthorize`       | ❌         | ❌         |
+| `getIpAuthorize`        | ❌         | ❌         |
+| `banUser`               | ❌         | ❌         |
 
 #### Netchan
+
+#### Client
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
@@ -50,6 +79,8 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 | `clc_EOF`               | ❌         | ❌         |
 | `clc_voipSpeex`         | ❌         | ❌         |
 | `clc_voipOpus`          | ❌         | ❌         |
+
+#### Server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
