@@ -1,16 +1,26 @@
 use quake3::net::chan::FRAGMENT_BIT;
 use std::ffi::c_int;
 
+const CONNECTIONLESS_SEQUENCE: c_int = 0xFF_FF_FF_FFu32 as i32;
+
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct PacketSequenceNumber(c_int);
 
 impl PacketSequenceNumber {
-    // this should probably fail if -1 or FRAGMENT_BIT
-    pub fn new(bits: c_int) -> Self {
-        Self(bits)
+    pub fn new(bits: c_int) -> Result<Self, InvalidPacketSequenceNumberError> {
+        if CONNECTIONLESS_SEQUENCE == bits {
+            Err(InvalidPacketSequenceNumberError(()))
+        } else if bits & FRAGMENT_BIT != 0 {
+            Err(InvalidPacketSequenceNumberError(()))
+        } else {
+            Ok(Self(bits))
+        }
     }
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct InvalidPacketSequenceNumberError(());
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -38,8 +48,6 @@ impl PacketSequence {
     }
 }
 
-const CONNECTIONLESS_SEQUENCE: c_int = 0xFF_FF_FF_FFu32 as i32;
-
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum PacketKind {
     Connectionless,
@@ -61,20 +69,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn packetsequence_new_with_number_and_fragment() {
-        let sequence =
-            PacketSequence::new_with_number_and_fragment(PacketSequenceNumber::new(42), true);
-        assert!(sequence.is_fragmented());
-        assert_eq!(sequence.number(), PacketSequenceNumber::new(42));
+    fn packetsequencenumber_new() {
+        assert!(PacketSequenceNumber::new(CONNECTIONLESS_SEQUENCE).is_err());
 
-        let sequence =
-            PacketSequence::new_with_number_and_fragment(PacketSequenceNumber::new(69), false);
-        assert!(!sequence.is_fragmented());
-        assert_eq!(sequence.number(), PacketSequenceNumber::new(69));
+        assert!(PacketSequenceNumber::new(42 | FRAGMENT_BIT).is_err());
+
+        assert!(PacketSequenceNumber::new(42).is_ok());
     }
 
     #[test]
-    fn packetkind_parse() {
+    fn packetsequence_new_with_number_and_fragment() -> Result<(), InvalidPacketSequenceNumberError>
+    {
+        let sequence =
+            PacketSequence::new_with_number_and_fragment(PacketSequenceNumber::new(42)?, true);
+        assert!(sequence.is_fragmented());
+        assert_eq!(sequence.number(), PacketSequenceNumber::new(42)?);
+
+        let sequence =
+            PacketSequence::new_with_number_and_fragment(PacketSequenceNumber::new(69)?, false);
+        assert!(!sequence.is_fragmented());
+        assert_eq!(sequence.number(), PacketSequenceNumber::new(69)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn packetkind_parse() -> Result<(), InvalidPacketSequenceNumberError> {
         assert_eq!(
             PacketKind::parse(0xFF_FF_FF_FFu32 as i32),
             PacketKind::Connectionless
@@ -83,7 +103,7 @@ mod tests {
         assert_eq!(
             PacketKind::parse(0x00_00_00_FFu32 as i32),
             PacketKind::Sequenced(PacketSequence::new_with_number_and_fragment(
-                PacketSequenceNumber::new(0xFF),
+                PacketSequenceNumber::new(0xFF)?,
                 false
             ))
         );
@@ -91,9 +111,11 @@ mod tests {
         assert_eq!(
             PacketKind::parse(0x80_00_00_FFu32 as i32),
             PacketKind::Sequenced(PacketSequence::new_with_number_and_fragment(
-                PacketSequenceNumber::new(0xFF),
+                PacketSequenceNumber::new(0xFF)?,
                 true
             ))
         );
+
+        Ok(())
     }
 }
