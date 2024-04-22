@@ -6,7 +6,9 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
+bytes = "1.6.0"
 quake3 = { path = "../quake3" }
+thiserror = "1.0.59"
 
 [badges]
 maintenance = { status = "experimental" }
