@@ -73,6 +73,9 @@ impl FragmentedMessage {
             })
         }
     }
+
+    // TODO: getter for sequence, fragment_start or FragmentInfo?, data
+    // TODO: fn is_last_fragment data.len() != FRAGMENT_SIZE or in FragmentInfo
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -111,8 +114,9 @@ pub fn parse_client_packet(
                 // fragmentLength = MSG_ReadShort( payload );
 
                 // let fragment_start = FragmentStart::new(fragmentStart)?;
-                // let fragment_length = FragmentLength::new(fragmentStart)?;
+                // let fragment_length = FragmentLength::new(fragmentLength)?;
                 // let fragment_info = FragmentInfo::new(fragment_start, fragment_length);
+                // assert_eq!(fragment.length(), payload.remaining());
                 // let payload = payload.copy_to_bytes(payload.remaining());
                 // let message = crate::client::FragmentedMessage::new(sequence.number(), qport, fragment_info.start(), payload);
                 // ClientMessage::Fragmented(message)

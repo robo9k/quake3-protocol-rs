@@ -58,6 +58,7 @@ pub enum PacketKind {
     Connectionless,
     Sequenced(PacketSequence),
     // TODO: Separate Sequenced(PacketSequenceNumber), Fragmented(FragmentInfo)? But FragmentInfo requires reading more of the packet
+    // ↑ requires reading qport for client (and checksum for all ioq3) packets, so whole enum would be specific to each crate::*::FragmentedMessage
 }
 
 impl PacketKind {
