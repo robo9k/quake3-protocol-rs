@@ -91,6 +91,10 @@ impl ConnectionlessMessage {
             Ok(Self { data })
         }
     }
+
+    pub fn data(&self) -> &Bytes {
+        &self.data
+    }
 }
 
 #[derive(thiserror::Error, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -140,6 +144,14 @@ pub struct FragmentInfo {
 impl FragmentInfo {
     pub fn new(start: FragmentStart, length: FragmentLength) -> Self {
         Self { start, length }
+    }
+
+    pub fn start(&self) -> FragmentStart {
+        self.start
+    }
+
+    pub fn length(&self) -> FragmentLength {
+        self.length
     }
 }
 
