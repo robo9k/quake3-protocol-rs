@@ -1,6 +1,7 @@
 use super::{
-    ConnectionlessMessage, FragmentStart, InvalidConnectionlessMessageError, InvalidQPortError,
-    PacketKind, PacketSequenceNumber, QPort,
+    ConnectionlessMessage, FragmentInfo, FragmentLength, FragmentStart,
+    InvalidConnectionlessMessageError, InvalidFragmentLengthError, InvalidFragmentStartError,
+    InvalidQPortError, PacketKind, PacketSequenceNumber, QPort,
 };
 use bytes::{Buf, Bytes};
 use quake3::net::chan::FRAGMENT_SIZE;
@@ -51,7 +52,7 @@ pub struct InvalidFragmentedMessageError {
 pub struct FragmentedMessage {
     sequence: PacketSequenceNumber,
     // TODO: ioq3 has additional checksum
-    fragment_start: FragmentStart,
+    fragment_info: FragmentInfo,
     data: Bytes,
 }
 
@@ -63,19 +64,32 @@ impl FragmentedMessage {
         data: T,
     ) -> Result<Self, InvalidFragmentedMessageError> {
         let data: Bytes = data.into();
-        if data.len() > FRAGMENT_SIZE {
-            Err(InvalidFragmentedMessageError { data })
-        } else {
-            Ok(Self {
+        let fragment_length = data.len().try_into();
+        match fragment_length {
+            Err(_) => Err(InvalidFragmentedMessageError { data }),
+            Ok(fragment_length) => Ok(Self {
                 sequence,
-                fragment_start,
+                fragment_info: FragmentInfo::new(fragment_start, fragment_length),
                 data,
-            })
+            }),
         }
     }
 
-    // TODO: getter for sequence, fragment_start or FragmentInfo?, data
-    // TODO: fn is_last_fragment data.len() != FRAGMENT_SIZE or in FragmentInfo
+    pub fn sequence(&self) -> PacketSequenceNumber {
+        self.sequence
+    }
+
+    pub fn fragment_info(&self) -> FragmentInfo {
+        self.fragment_info
+    }
+
+    pub fn is_last(&self) -> bool {
+        self.fragment_info.is_last()
+    }
+
+    pub fn data(&self) -> &Bytes {
+        &self.data
+    }
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -91,6 +105,9 @@ pub enum InvalidClientMessageError {
     InvalidConnectionlessMessage(#[from] InvalidConnectionlessMessageError),
     InvalidSequencedMessage(#[from] crate::client::InvalidSequencedMessageError),
     InvalidQPort(#[from] InvalidQPortError),
+    InvalidFragmentStart(#[from] InvalidFragmentStartError),
+    InvalidFragmentLength(#[from] InvalidFragmentLengthError),
+    InvalidFragmentedMessage(#[from] crate::client::InvalidFragmentedMessageError),
 }
 
 pub fn parse_client_packet(
@@ -110,17 +127,21 @@ pub fn parse_client_packet(
             let qport = QPort::new(payload.get_u16_le())?;
 
             if sequence.is_fragmented() {
-                // fragmentStart = MSG_ReadShort( payload );
-                // fragmentLength = MSG_ReadShort( payload );
-
-                // let fragment_start = FragmentStart::new(fragmentStart)?;
-                // let fragment_length = FragmentLength::new(fragmentLength)?;
-                // let fragment_info = FragmentInfo::new(fragment_start, fragment_length);
-                // assert_eq!(fragment.length(), payload.remaining());
-                // let payload = payload.copy_to_bytes(payload.remaining());
-                // let message = crate::client::FragmentedMessage::new(sequence.number(), qport, fragment_info.start(), payload);
-                // ClientMessage::Fragmented(message)
-                todo!();
+                // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
+                let fragment_start = FragmentStart::new(payload.get_u16_le())?;
+                // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
+                let fragment_length = FragmentLength::new(payload.get_u16_le())?;
+                let fragment_info = FragmentInfo::new(fragment_start, fragment_length);
+                // TODO: this should be an error, not a panic
+                assert_eq!(usize::from(fragment_info.length()), payload.remaining());
+                let payload = payload.copy_to_bytes(payload.remaining());
+                let message = crate::client::FragmentedMessage::new(
+                    sequence.number(),
+                    qport,
+                    fragment_info.start(),
+                    payload,
+                )?;
+                ClientMessage::Fragmented(message)
             } else {
                 let payload = payload.copy_to_bytes(payload.remaining());
                 let message =
@@ -194,6 +215,27 @@ mod tests {
             ClientMessage::Sequenced(message) => {
                 assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
                 assert_eq!(message.qport(), QPort::new(666)?);
+                assert_eq!(message.data(), &b"\xDE\xAD\xBE\xEF"[..]);
+            }
+            _ => panic!(),
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_client_packet_fragmented() -> Result<(), Box<dyn std::error::Error>> {
+        let mut payload = &b"\x00\x00\x00\x80\x9A\x02\x01\x00\x04\x00\xDE\xAD\xBE\xEF"[..];
+
+        let message = parse_client_packet(&mut payload)?;
+        match message {
+            ClientMessage::Fragmented(message) => {
+                assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
+                assert_eq!(message.qport(), QPort::new(666)?);
+                assert_eq!(
+                    message.fragment_info(),
+                    FragmentInfo::new(FragmentStart::new(1)?, FragmentLength::new(4)?)
+                );
                 assert_eq!(message.data(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),

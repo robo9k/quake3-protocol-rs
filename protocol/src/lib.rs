@@ -57,8 +57,6 @@ impl PacketSequence {
 pub enum PacketKind {
     Connectionless,
     Sequenced(PacketSequence),
-    // TODO: Separate Sequenced(PacketSequenceNumber), Fragmented(FragmentInfo)? But FragmentInfo requires reading more of the packet
-    // ↑ requires reading qport for client (and checksum for all ioq3) packets, so whole enum would be specific to each crate::*::FragmentedMessage
 }
 
 impl PacketKind {
@@ -134,6 +132,27 @@ impl FragmentLength {
             Ok(Self(length))
         }
     }
+
+    pub fn is_last_fragment(&self) -> bool {
+        self.0 as usize != FRAGMENT_SIZE
+    }
+}
+
+impl std::convert::From<FragmentLength> for usize {
+    fn from(item: FragmentLength) -> Self {
+        item.0 as Self
+    }
+}
+
+impl std::convert::TryFrom<usize> for FragmentLength {
+    type Error = InvalidFragmentLengthError;
+
+    fn try_from(value: usize) -> Result<Self, Self::Error> {
+        let length: c_ushort = value
+            .try_into()
+            .map_err(|_| InvalidFragmentLengthError(()))?;
+        FragmentLength::new(length)
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -153,6 +172,10 @@ impl FragmentInfo {
 
     pub fn length(&self) -> FragmentLength {
         self.length
+    }
+
+    pub fn is_last(&self) -> bool {
+        self.length.is_last_fragment()
     }
 }
 
@@ -251,6 +274,17 @@ mod tests {
         assert!(FragmentLength::new(FRAGMENT_SIZE as c_ushort + 1).is_err());
 
         assert!(FragmentLength::new(42).is_ok());
+    }
+
+    #[test]
+    fn fragmentlength_is_last_fragment() -> Result<(), Box<dyn std::error::Error>> {
+        assert!(FragmentLength::new(0)?.is_last_fragment());
+
+        assert!(FragmentLength::new(42 as c_ushort + 1)?.is_last_fragment());
+
+        assert!(!FragmentLength::new(FRAGMENT_SIZE as c_ushort)?.is_last_fragment());
+
+        Ok(())
     }
 
     #[test]
