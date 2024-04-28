@@ -9,7 +9,7 @@ use quake3::net::chan::FRAGMENT_SIZE;
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct InvalidSequencedMessageError {
-    data: Bytes,
+    payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -17,7 +17,7 @@ pub struct SequencedMessage {
     sequence: PacketSequenceNumber,
     qport: QPort,
     // TODO: ioq3 has additional checksum
-    data: Bytes,
+    payload: Bytes,
 }
 
 impl SequencedMessage {
@@ -25,16 +25,16 @@ impl SequencedMessage {
     pub fn new<T: Into<Bytes>>(
         sequence: PacketSequenceNumber,
         qport: QPort,
-        data: T,
+        payload: T,
     ) -> Result<Self, InvalidSequencedMessageError> {
-        let data: Bytes = data.into();
-        if data.len() >= FRAGMENT_SIZE {
-            Err(InvalidSequencedMessageError { data })
+        let payload: Bytes = payload.into();
+        if payload.len() >= FRAGMENT_SIZE {
+            Err(InvalidSequencedMessageError { payload })
         } else {
             Ok(Self {
                 sequence,
                 qport,
-                data,
+                payload,
             })
         }
     }
@@ -47,15 +47,15 @@ impl SequencedMessage {
         self.qport
     }
 
-    pub fn data(&self) -> &Bytes {
-        &self.data
+    pub fn payload(&self) -> &Bytes {
+        &self.payload
     }
 }
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct InvalidFragmentedMessageError {
-    data: Bytes,
+    payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -64,7 +64,7 @@ pub struct FragmentedMessage {
     qport: QPort,
     // TODO: ioq3 has additional checksum
     fragment_info: FragmentInfo,
-    data: Bytes,
+    payload: Bytes,
 }
 
 impl FragmentedMessage {
@@ -73,17 +73,17 @@ impl FragmentedMessage {
         sequence: PacketSequenceNumber,
         qport: QPort,
         fragment_start: FragmentStart,
-        data: T,
+        payload: T,
     ) -> Result<Self, InvalidFragmentedMessageError> {
-        let data: Bytes = data.into();
-        let fragment_length = data.len().try_into();
+        let payload: Bytes = payload.into();
+        let fragment_length = payload.len().try_into();
         match fragment_length {
-            Err(_) => Err(InvalidFragmentedMessageError { data }),
+            Err(_) => Err(InvalidFragmentedMessageError { payload }),
             Ok(fragment_length) => Ok(Self {
                 sequence,
                 qport,
                 fragment_info: FragmentInfo::new(fragment_start, fragment_length),
-                data,
+                payload,
             }),
         }
     }
@@ -104,8 +104,8 @@ impl FragmentedMessage {
         self.fragment_info.is_last()
     }
 
-    pub fn data(&self) -> &Bytes {
-        &self.data
+    pub fn payload(&self) -> &Bytes {
+        &self.payload
     }
 }
 
@@ -216,7 +216,7 @@ mod tests {
         let message = parse_server_packet(&mut payload)?;
         match message {
             ServerMessage::Connectionless(message) => {
-                assert_eq!(message.data(), &b"\xDE\xAD\xBE\xEF"[..]);
+                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -232,7 +232,7 @@ mod tests {
         match message {
             ServerMessage::Sequenced(message) => {
                 assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
-                assert_eq!(message.data(), &b"\xDE\xAD\xBE\xEF"[..]);
+                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -252,7 +252,7 @@ mod tests {
                     message.fragment_info(),
                     FragmentInfo::new(FragmentStart::new(1)?, FragmentLength::new(4)?)
                 );
-                assert_eq!(message.data(), &b"\xDE\xAD\xBE\xEF"[..]);
+                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }

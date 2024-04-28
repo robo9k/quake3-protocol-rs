@@ -72,27 +72,27 @@ impl PacketKind {
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct InvalidConnectionlessMessageError {
-    data: Bytes,
+    payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ConnectionlessMessage {
-    data: Bytes,
+    payload: Bytes,
 }
 
 impl ConnectionlessMessage {
     // TODO: new_unckecked to create oversize message?
-    pub fn new<T: Into<Bytes>>(data: T) -> Result<Self, InvalidConnectionlessMessageError> {
-        let data: Bytes = data.into();
-        if data.len() > MAX_PACKETLEN {
-            Err(InvalidConnectionlessMessageError { data })
+    pub fn new<T: Into<Bytes>>(payload: T) -> Result<Self, InvalidConnectionlessMessageError> {
+        let payload: Bytes = payload.into();
+        if payload.len() > MAX_PACKETLEN {
+            Err(InvalidConnectionlessMessageError { payload })
         } else {
-            Ok(Self { data })
+            Ok(Self { payload })
         }
     }
 
-    pub fn data(&self) -> &Bytes {
-        &self.data
+    pub fn payload(&self) -> &Bytes {
+        &self.payload
     }
 }
 
