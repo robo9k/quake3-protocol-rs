@@ -16,6 +16,8 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 
 #### Connectionless
 
+- ✔️ connectionless
+
 ##### Client
 
 | command                 | serialize | deserialize |
@@ -66,6 +68,9 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 | `banUser`               | ❌        | ❌         |
 
 #### Netchan
+
+- ❌ sequenced
+- ✔️ fragmented
 
 #### Client
 
