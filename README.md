@@ -20,50 +20,50 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `challengeResponse`     | ❌         | ❌         |
-| `connectResponse`       | ❌         | ❌         |
-| `infoResponse`          | ❌         | ❌         |
-| `statusResponse`        | ❌         | ❌         |
-| `echo`                  | ❌         | ❌         |
-| `print`                 | ❌         | ❌         |
-| `keyAuthorize`          | ❌         | ❌         |
-| `motd`                  | ❌         | ❌         |
-| `getserversResponse`    | ❌         | ❌         |
-| `getserversExtResponse` | ❌         | ❌         |
+| `challengeResponse`     | ❌        | ❌         |
+| `connectResponse`       | ❌        | ❌         |
+| `infoResponse`          | ❌        | ❌         |
+| `statusResponse`        | ❌        | ❌         |
+| `echo`                  | ❌        | ❌         |
+| `print`                 | ❌        | ❌         |
+| `keyAuthorize`          | ❌        | ❌         |
+| `motd`                  | ❌        | ❌         |
+| `getserversResponse`    | ❌        | ❌         |
+| `getserversExtResponse` | ❌        | ❌         |
 
 ##### Game server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `getchallenge`          | ❌         | ❌         |
-| `connect`               | ❌         | ❌         |
-| `disconnect`            | ❌         | ❌         |
-| `getinfo`               | ❌         | ❌         |
-| `getstatus`             | ❌         | ❌         |
-| `ipAuthorize`           | ❌         | ❌         |
-| `rcon`                  | ❌         | ❌         |
+| `getchallenge`          | ❌        | ❌         |
+| `connect`               | ❌        | ❌         |
+| `disconnect`            | ❌        | ❌         |
+| `getinfo`               | ❌        | ❌         |
+| `getstatus`             | ❌        | ❌         |
+| `ipAuthorize`           | ❌        | ❌         |
+| `rcon`                  | ❌        | ❌         |
 
 ##### Update server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `getmotd`               | ❌         | ❌         |
+| `getmotd`               | ❌        | ❌         |
 
 ##### Master server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `heartbeat`             | ❌         | ❌         |
-| `getservers`            | ❌         | ❌         |
-| `getserversExt`         | ❌         | ❌         |
+| `heartbeat`             | ❌        | ❌         |
+| `getservers`            | ❌        | ❌         |
+| `getserversExt`         | ❌        | ❌         |
 
 ##### Auth server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `getKeyAuthorize`       | ❌         | ❌         |
-| `getIpAuthorize`        | ❌         | ❌         |
-| `banUser`               | ❌         | ❌         |
+| `getKeyAuthorize`       | ❌        | ❌         |
+| `getIpAuthorize`        | ❌        | ❌         |
+| `banUser`               | ❌        | ❌         |
 
 #### Netchan
 
@@ -71,27 +71,27 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `clc_bad`               | ❌         | ❌         |
-| `clc_nop`               | ❌         | ❌         |
-| `clc_move`              | ❌         | ❌         |
-| `clc_moveNoDelta`       | ❌         | ❌         |
-| `clc_clientCommand`     | ❌         | ❌         |
-| `clc_EOF`               | ❌         | ❌         |
-| `clc_voipSpeex`         | ❌         | ❌         |
-| `clc_voipOpus`          | ❌         | ❌         |
+| `clc_bad`               | ❌        | ❌         |
+| `clc_nop`               | ❌        | ❌         |
+| `clc_move`              | ❌        | ❌         |
+| `clc_moveNoDelta`       | ❌        | ❌         |
+| `clc_clientCommand`     | ❌        | ❌         |
+| `clc_EOF`               | ❌        | ❌         |
+| `clc_voipSpeex`         | ❌        | ❌         |
+| `clc_voipOpus`          | ❌        | ❌         |
 
 #### Server
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
-| `svc_bad`               | ❌         | ❌         |
-| `svc_nop`               | ❌         | ❌         |
-| `svc_gamestate`         | ❌         | ❌         |
-| `svc_configstring`      | ❌         | ❌         |
-| `svc_baseline`          | ❌         | ❌         |
-| `svc_serverCommand`     | ❌         | ❌         |
-| `svc_download`          | ❌         | ❌         |
-| `svc_snapshot`          | ❌         | ❌         |
-| `svc_EOF`               | ❌         | ❌         |
-| `svc_voipSpeex`         | ❌         | ❌         |
-| `svc_voipOpus`          | ❌         | ❌         |
+| `svc_bad`               | ❌        | ❌         |
+| `svc_nop`               | ❌        | ❌         |
+| `svc_gamestate`         | ❌        | ❌         |
+| `svc_configstring`      | ❌        | ❌         |
+| `svc_baseline`          | ❌        | ❌         |
+| `svc_serverCommand`     | ❌        | ❌         |
+| `svc_download`          | ❌        | ❌         |
+| `svc_snapshot`          | ❌        | ❌         |
+| `svc_EOF`               | ❌        | ❌         |
+| `svc_voipSpeex`         | ❌        | ❌         |
+| `svc_voipOpus`          | ❌        | ❌         |
