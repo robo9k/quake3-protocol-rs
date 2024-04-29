@@ -3,5 +3,6 @@
 members = [
     "quake3",
     "protocol",
+    "huffman",
 ]
 resolver = "2"
