@@ -12,3 +12,6 @@ thiserror = "1.0.59"
 
 [badges]
 maintenance = { status = "experimental" }
+
+[dev-dependencies]
+hex-literal = "0.4.1"

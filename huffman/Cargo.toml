@@ -6,6 +6,11 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
+bitvec = "1.0.1"
+bytes = "1.6.0"
 
 [badges]
 maintenance = { status = "experimental" }
+
+[dev-dependencies]
+hex-literal = "0.4.1"
