@@ -301,21 +301,21 @@ impl Huffman {
                 Node::NotYetTransmitted { .. } => {
                     let mut value = 0;
                     let b0 = bits.next().unwrap();
-                    value |= (b0 as u8) << 0;
+                    value |= (b0 as u8) << 7;
                     let b1 = bits.next().unwrap();
-                    value |= (b1 as u8) << 1;
+                    value |= (b1 as u8) << 6;
                     let b2 = bits.next().unwrap();
-                    value |= (b2 as u8) << 2;
+                    value |= (b2 as u8) << 5;
                     let b3 = bits.next().unwrap();
-                    value |= (b3 as u8) << 3;
+                    value |= (b3 as u8) << 4;
                     let b4 = bits.next().unwrap();
-                    value |= (b4 as u8) << 4;
+                    value |= (b4 as u8) << 3;
                     let b5 = bits.next().unwrap();
-                    value |= (b5 as u8) << 5;
+                    value |= (b5 as u8) << 2;
                     let b6 = bits.next().unwrap();
-                    value |= (b6 as u8) << 6;
+                    value |= (b6 as u8) << 1;
                     let b7 = bits.next().unwrap();
-                    value |= (b7 as u8) << 7;
+                    value |= (b7 as u8) << 0;
 
                     println!("decode NYT {:#04X}", value);
                     bytes.put_u8(value);
@@ -348,7 +348,7 @@ mod tests {
     use super::*;
     use bitvec::slice::BitSlice;
 
-    //#[test]
+    #[test]
     fn huffman_adaptive_decode() {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
@@ -382,34 +382,11 @@ mod tests {
             &mut decoded_bytes,
         );
 
+        let decoded = std::str::from_utf8(&decoded_bytes).unwrap();
+        println!("decoded: {}", decoded);
+
         // this is taken from debug logs and not debugger/packets, so might be incorrect
         let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
-
-        assert_eq!(&decoded_bytes[..], expected);
-    }
-
-    #[test]
-    fn huffman_adaptive_decode_simple() {
-        let mut huff = Huffman::adaptive();
-        let encoded_bytes = hex_literal::hex!(
-            "
-            01 23 45 67 89 AB CD EF
-        "
-        );
-        let encoded_bits = BitSlice::<_, Lsb0>::from_slice(&encoded_bytes);
-        let decoded_len = 10;
-        let mut decoded_bytes = BytesMut::new();
-
-        huff.decode(
-            &mut encoded_bits.iter().by_vals(),
-            decoded_len,
-            &mut decoded_bytes,
-        );
-
-        let decoded = std::str::from_utf8(&decoded_bytes[..]).unwrap();
-        println!("decoded: {:?}", decoded);
-
-        let expected = b"idk";
 
         assert_eq!(&decoded_bytes[..], expected);
     }
