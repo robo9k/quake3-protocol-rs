@@ -139,12 +139,12 @@ impl Huffman {
         self.node_mut(a).set_parent(a_parent);
         self.node_mut(b).set_parent(b_parent);
 
-        match self.node_ref(a) {
-            &Node::NotYetTransmitted { .. } => unreachable!(),
-            &Node::Leaf { symbol, .. } => {
+        match *self.node_ref(a) {
+            Node::NotYetTransmitted { .. } => unreachable!(),
+            Node::Leaf { symbol, .. } => {
                 self.symbol_index[symbol.0 as usize] = Some(a);
             }
-            &Node::Internal { left, right, .. } => {
+            Node::Internal { left, right, .. } => {
                 self.node_mut(left).set_parent(a);
                 self.node_mut(right).set_parent(a);
             }
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn huffman_new() {
-        let mut huff = Huffman::new();
+        let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
         let encoded_bytes = hex_literal::hex!(
             "
