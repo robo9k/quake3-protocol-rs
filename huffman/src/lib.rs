@@ -186,7 +186,7 @@ impl Huffman {
             self.nyt = nyt_index;
 
             println!("inserted new nodes for symbol");
-            self.print();
+            self.graphviz();
 
             nyt_parent
         } else {
@@ -202,7 +202,7 @@ impl Huffman {
             if leader != node_index && Some(leader) != node_parent {
                 self.swap_nodes(node_index, leader);
                 println!("swapped node and leader");
-                self.print();
+                self.graphviz();
             }
 
             let n = self.tree[node_index.0].as_mut().unwrap();
@@ -212,7 +212,7 @@ impl Huffman {
                 Node::Internal { weight, .. } => *weight = NodeWeight(weight.0 + 1),
             }
             println!("increased node weight");
-            self.print();
+            self.graphviz();
 
             node = node_parent;
         }
@@ -239,6 +239,56 @@ impl Huffman {
             .for_each(|(s, n)| println!("symbol {} → {:?}", s, n));
 
         println!("---");
+        println!();
+    }
+
+    fn graphviz(&self) {
+        println!("digraph {{");
+
+        // graph attributes
+        println!("\tordering=out");
+
+        // node attributes
+        println!("\t{{");
+        self.tree
+            .iter()
+            .enumerate()
+            .filter(|(_i, n)| n.is_some())
+            .for_each(|(i, n)| {
+                let node = n.as_ref().unwrap();
+                let shape = match node {
+                    Node::NotYetTransmitted { .. } => "circle",
+                    Node::Leaf { .. } => "square",
+                    Node::Internal { .. } => "rect",
+                };
+                let label = match node {
+                    Node::NotYetTransmitted { .. } => format!("{}: NYT", i),
+                    Node::Leaf { weight, symbol, .. } => {
+                        format!("{}, {}: {:#04X}", i, weight.0, symbol.0)
+                    }
+                    Node::Internal { weight, .. } => format!("{}, {}", i, weight.0),
+                };
+                println!("\t\t{} [shape={},label=\"{}\"]", i, shape, label);
+            });
+        println!("\t}}");
+
+        // nodes
+        self.tree
+            .iter()
+            .enumerate()
+            .filter(|(_i, n)| n.is_some())
+            .for_each(|(i, n)| {
+                let node = n.as_ref().unwrap();
+                match node {
+                    Node::Internal { left, right, .. } => {
+                        println!("\t{} -> {} [label=0]", i, left.0);
+                        println!("\t{} -> {} [label=1]", i, right.0);
+                    }
+                    _ => {}
+                }
+            });
+
+        println!("}}");
         println!();
     }
 
@@ -325,7 +375,7 @@ mod tests {
         let mut decoded_bytes = BytesMut::new();
 
         println!("initial tree");
-        huff.print();
+        huff.graphviz();
 
         huff.decode(
             &mut encoded_bits.iter().by_vals(),
