@@ -61,6 +61,14 @@ impl Node {
             Node::Internal { weight, .. } => weight,
         }
     }
+
+    fn increase_weight(&mut self) {
+        match self {
+            Node::NotYetTransmitted { .. } => unreachable!(),
+            Node::Leaf { weight, .. } => *weight = NodeWeight(weight.0 + 1),
+            Node::Internal { weight, .. } => *weight = NodeWeight(weight.0 + 1),
+        }
+    }
 }
 
 const MAX_SYMBOLS: usize = u8::MAX as usize + 1;
@@ -122,7 +130,7 @@ impl Huffman {
     }
 
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
-        println!("swap {:?} ↔ {:?}", a, b);
+        println!("swap nodes {} ↔ {}", a.0, b.0);
 
         let a_parent = self.node_ref(a).parent().unwrap();
         let b_parent = self.node_ref(b).parent().unwrap();
@@ -155,7 +163,7 @@ impl Huffman {
 
     fn insert(&mut self, symbol: Symbol) {
         let symbol_index = self.symbol_index[symbol.0 as usize];
-        println!("insert {:?} → {:?}", symbol, symbol_index);
+        println!("insert symbol {} → {:?}", symbol.0, symbol_index);
 
         let mut node = if symbol_index.is_none() {
             let internal_index = self.nyt;
@@ -204,20 +212,16 @@ impl Huffman {
             let node_parent = self.node_ref(node_index).parent();
 
             let leader = self.block_leader(node_index);
-            println!("leader {:?}", leader);
+            println!("leader for {}: {}", node_index.0, leader.0);
 
             if leader != node_index && Some(leader) != node_parent {
                 self.swap_nodes(node_index, leader);
-                println!("swapped node and leader");
+                println!("swapped node {} and leader {}", node_index.0, leader.0);
                 self.graphviz();
             }
 
-            match self.node_mut(node_index) {
-                Node::NotYetTransmitted { .. } => unreachable!(),
-                Node::Leaf { weight, .. } => *weight = NodeWeight(weight.0 + 1),
-                Node::Internal { weight, .. } => *weight = NodeWeight(weight.0 + 1),
-            }
-            println!("increased node weight");
+            self.node_mut(node_index).increase_weight();
+            println!("increased node {} weight", node_index.0);
             self.graphviz();
 
             node = node_parent;
@@ -311,7 +315,7 @@ impl Huffman {
     }
 
     pub fn decode(&mut self, bits: &mut BitValIter<u8, Lsb0>, length: usize, bytes: &mut BytesMut) {
-        println!("decode {:?} bytes", length);
+        println!("decode {} bytes", length);
         let mut node_index = Self::ROOT;
         let mut written = 0;
         while written < length {
@@ -336,14 +340,14 @@ impl Huffman {
                     let b7 = bits.next().unwrap();
                     value |= (b7 as u8) << 7;
 
-                    println!("decode NYT {:?}", value);
+                    println!("decode NYT {:#04X}", value);
                     bytes.put_u8(value);
                     written += 1;
                     self.insert(Symbol(value));
                     node_index = Self::ROOT;
                 }
                 Node::Leaf { symbol, .. } => {
-                    println!("decode leaf {:?}", symbol);
+                    println!("decode leaf {:#04X}", symbol.0);
                     bytes.put_u8(symbol.0);
                     written += 1;
                     self.insert(symbol);
@@ -351,7 +355,7 @@ impl Huffman {
                 }
                 Node::Internal { left, right, .. } => {
                     let bit = bits.next().unwrap();
-                    println!("decode bit {:?}", bit);
+                    println!("decode bit {}", bit);
                     node_index = if bit { right } else { left };
                 }
             }
