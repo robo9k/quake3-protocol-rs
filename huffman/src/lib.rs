@@ -228,29 +228,6 @@ impl Huffman {
         }
     }
 
-    fn print(&self) {
-        println!("--- 🌳 ---");
-        println!("nyt {:?}", self.nyt);
-        println!("next {:?}", self.next);
-        println!();
-
-        self.tree
-            .iter()
-            .enumerate()
-            .filter(|(_i, n)| n.is_some())
-            .for_each(|(i, n)| println!("tree {} → {:?}", i, n));
-        println!();
-
-        self.symbol_index
-            .iter()
-            .enumerate()
-            .filter(|(_s, n)| n.is_some())
-            .for_each(|(s, n)| println!("symbol {} → {:?}", s, n));
-
-        println!("---");
-        println!();
-    }
-
     fn graphviz(&self) {
         println!("digraph {{");
 
