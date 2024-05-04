@@ -46,20 +46,6 @@ impl Node {
         }
     }
 
-    fn set_parent_index(&mut self, index: Option<NodeIndex>) {
-        match self {
-            Node::NotYetTransmitted { parent } => *parent = index,
-            Node::Leaf { parent, .. } => {
-                if let Some(index) = index {
-                    *parent = index
-                } else {
-                    panic!()
-                }
-            }
-            Node::Internal { parent, .. } => *parent = index,
-        }
-    }
-
     fn weight(&self) -> NodeWeight {
         match *self {
             Node::NotYetTransmitted { .. } => NodeWeight(0),
@@ -120,47 +106,42 @@ impl Huffman {
         NodeIndex(i + 1)
     }
 
-    fn swap_nodes(&mut self, node_index1: NodeIndex, node_index2: NodeIndex) {
-        println!("swap {:?} ↔ {:?}", node_index1, node_index2);
+    fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
+        println!("swap {:?} ↔ {:?}", a, b);
 
-        self.tree.swap(node_index1.0, node_index2.0);
+        let a_parent = self.tree[a.0].as_ref().unwrap().parent_index().unwrap();
+        let b_parent = self.tree[b.0].as_ref().unwrap().parent_index().unwrap();
 
-        let (node1, node2) = if node_index1.0 < node_index2.0 {
-            let [n1, .., n2] = &mut self.tree[node_index1.0..=node_index2.0] else {
-                unreachable!()
-            };
-            (n1, n2)
-        } else {
-            let [n2, .., n1] = &mut self.tree[node_index2.0..=node_index1.0] else {
-                unreachable!()
-            };
-            (n1, n2)
-        };
-        let (node1, node2) = (node1.as_mut().unwrap(), node2.as_mut().unwrap());
-        println!("swap {:?} ↔ {:?}", node1, node2);
-        let parent1 = node1.parent_index();
-        let parent2 = node2.parent_index();
-        node1.set_parent_index(parent2);
-        node2.set_parent_index(parent1);
+        fn set_parent(node: &mut Node, index: NodeIndex) {
+            match node {
+                Node::NotYetTransmitted { parent } => *parent = Some(index),
+                Node::Leaf { parent, .. } => *parent = index,
+                Node::Internal { parent, .. } => *parent = Some(index),
+            }
+        }
 
-        for (a_idx, b_idx) in [(node_index1, node_index2), (node_index2, node_index1)] {
-            let a_node = self.tree[a_idx.0].as_ref().unwrap();
-            let a_parent = if let Some(a_p) = a_node.parent_index() {
-                self.tree[a_p.0].as_mut()
-            } else {
-                None
-            };
-            match a_parent {
-                None => unreachable!(),
-                Some(Node::NotYetTransmitted { .. }) => unreachable!(),
-                Some(Node::Leaf { .. }) => unreachable!(),
-                Some(Node::Internal { left, right, .. }) => {
-                    if *left == b_idx {
-                        *left = a_idx;
-                    } else {
-                        *right = a_idx;
-                    }
-                }
+        self.tree.swap(a.0, b.0);
+        set_parent(self.tree[a.0].as_mut().unwrap(), a_parent);
+        set_parent(self.tree[b.0].as_mut().unwrap(), b_parent);
+
+        match self.tree[a.0].as_ref().unwrap() {
+            &Node::NotYetTransmitted { .. } => unreachable!(),
+            &Node::Leaf { symbol, .. } => {
+                self.symbol_index[symbol.0 as usize] = Some(a);
+            }
+            &Node::Internal { left, right, .. } => {
+                set_parent(self.tree[left.0].as_mut().unwrap(), a);
+                set_parent(self.tree[right.0].as_mut().unwrap(), a);
+            }
+        }
+        match self.tree[b.0].as_ref().unwrap() {
+            &Node::NotYetTransmitted { .. } => unreachable!(),
+            &Node::Leaf { symbol, .. } => {
+                self.symbol_index[symbol.0 as usize] = Some(b);
+            }
+            &Node::Internal { left, right, .. } => {
+                set_parent(self.tree[left.0].as_mut().unwrap(), b);
+                set_parent(self.tree[right.0].as_mut().unwrap(), b);
             }
         }
     }
@@ -351,6 +332,9 @@ mod tests {
             decoded_len,
             &mut decoded_bytes,
         );
+
+        let decoded = std::str::from_utf8(&decoded_bytes[..]).unwrap();
+        println!("decoded: {:?}", decoded);
 
         // this is taken from debug logs and not debugger/packets, so might be incorrect
         let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
