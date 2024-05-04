@@ -46,6 +46,20 @@ impl Node {
         }
     }
 
+    fn set_parent_index(&mut self, index: Option<NodeIndex>) {
+        match self {
+            Node::NotYetTransmitted { parent } => *parent = index,
+            Node::Leaf { parent, .. } => {
+                if let Some(index) = index {
+                    *parent = index
+                } else {
+                    panic!()
+                }
+            }
+            Node::Internal { parent, .. } => *parent = index,
+        }
+    }
+
     fn weight(&self) -> NodeWeight {
         match *self {
             Node::NotYetTransmitted { .. } => NodeWeight(0),
@@ -110,38 +124,24 @@ impl Huffman {
         println!("swap {:?} ↔ {:?}", node_index1, node_index2);
 
         self.tree.swap(node_index1.0, node_index2.0);
-        let [node1, .., node2] = &mut self.tree[node_index1.0..=node_index2.0] else {
-            unreachable!()
+
+        let (node1, node2) = if node_index1.0 < node_index2.0 {
+            let [n1, .., n2] = &mut self.tree[node_index1.0..=node_index2.0] else {
+                unreachable!()
+            };
+            (n1, n2)
+        } else {
+            let [n2, .., n1] = &mut self.tree[node_index2.0..=node_index1.0] else {
+                unreachable!()
+            };
+            (n1, n2)
         };
-        match (node1, node2) {
-            (
-                Some(Node::NotYetTransmitted { parent: parent_1 }),
-                Some(Node::NotYetTransmitted { parent: parent_2 }),
-            ) => {
-                (*parent_1, *parent_2) = (*parent_2, *parent_1);
-            }
-            (
-                Some(Node::Leaf {
-                    parent: parent_1, ..
-                }),
-                Some(Node::Leaf {
-                    parent: parent_2, ..
-                }),
-            ) => {
-                (*parent_1, *parent_2) = (*parent_2, *parent_1);
-            }
-            (
-                Some(Node::Internal {
-                    parent: parent_1, ..
-                }),
-                Some(Node::Internal {
-                    parent: parent_2, ..
-                }),
-            ) => {
-                (*parent_1, *parent_2) = (*parent_2, *parent_1);
-            }
-            _ => unreachable!(),
-        }
+        let (node1, node2) = (node1.as_mut().unwrap(), node2.as_mut().unwrap());
+        println!("swap {:?} ↔ {:?}", node1, node2);
+        let parent1 = node1.parent_index();
+        let parent2 = node2.parent_index();
+        node1.set_parent_index(parent2);
+        node2.set_parent_index(parent1);
 
         for (a_idx, b_idx) in [(node_index1, node_index2), (node_index2, node_index1)] {
             let a_node = self.tree[a_idx.0].as_ref().unwrap();
@@ -271,21 +271,21 @@ impl Huffman {
                 Node::NotYetTransmitted { .. } => {
                     let mut value = 0;
                     let b0 = bits.next().unwrap();
-                    value &= (b0 as u8) << 0;
+                    value |= (b0 as u8) << 0;
                     let b1 = bits.next().unwrap();
-                    value &= (b1 as u8) << 1;
+                    value |= (b1 as u8) << 1;
                     let b2 = bits.next().unwrap();
-                    value &= (b2 as u8) << 2;
+                    value |= (b2 as u8) << 2;
                     let b3 = bits.next().unwrap();
-                    value &= (b3 as u8) << 3;
+                    value |= (b3 as u8) << 3;
                     let b4 = bits.next().unwrap();
-                    value &= (b4 as u8) << 4;
+                    value |= (b4 as u8) << 4;
                     let b5 = bits.next().unwrap();
-                    value &= (b5 as u8) << 5;
+                    value |= (b5 as u8) << 5;
                     let b6 = bits.next().unwrap();
-                    value &= (b6 as u8) << 6;
+                    value |= (b6 as u8) << 6;
                     let b7 = bits.next().unwrap();
-                    value &= (b7 as u8) << 7;
+                    value |= (b7 as u8) << 7;
 
                     println!("decode NYT {:?}", value);
                     bytes.put_u8(value);
@@ -318,9 +318,29 @@ mod tests {
     #[test]
     fn huffman_new() {
         let mut huff = Huffman::new();
-        let encoded_bytes = b"\x00\xFF";
-        let encoded_bits = BitSlice::<_, Lsb0>::from_slice(encoded_bytes);
-        let decoded_len = 4;
+        // this is from a wireshark dump
+        let encoded_bytes = hex_literal::hex!(
+            "
+            44 74 30 8e 05 0c c7 26 
+            c3 14 ec 8e f9 67 d0 1a 4e 29 98 01 c7 c3 7a 30 
+            2c 2c 19 1c 13 87 c2 de 71 0a 5c ac 30 cd 40 ce 
+            3a ca af 96 2a b0 d9 3a b7 b0 fd 4d a8 0e c9 ba 
+            79 4c 28 0a c4 0a 4f 83 02 9b 9f 69 e4 0a c3 38 
+            47 9b cf 22 af 61 f6 64 6f 13 7c a3 ae 1f af 06 
+            52 b7 3c a3 06 5f 3a f4 8f 66 d2 40 ac ee 2b 2d 
+            ea 38 18 f9 b7 f2 36 37 80 ea 17 e9 d5 40 58 f7 
+            0f c6 b2 3a 85 e5 bb ca f7 78 77 09 2c e1 e5 7b 
+            cc ad 59 0f 3c ea 67 2a 37 1a 31 c7 83 e5 02 d7 
+            d1 dd c0 73 eb e6 5d 4c 32 87 a4 a4 8d 2e 1b 08 
+            0b 38 11 ac 7b 9a 34 16 e2 e6 d1 3b f0 f8 f2 99 
+            da c4 91 b7 4b 53 cf 82 a6 da 10 61 89 b0 5b 6c 
+            6e c3 46 e3 b7 7c 19 62 38 ac 42 48 23 ab 11 e6 
+            20 0a b8 75 91 26 12 6e 92 25 65 c9 00       
+        "
+        );
+        let encoded_bits = BitSlice::<_, Lsb0>::from_slice(&encoded_bytes);
+        // there's a u16 after "connect "
+        let decoded_len = 0x0128;
         let mut decoded_bytes = BytesMut::new();
 
         println!("initial tree");
@@ -332,6 +352,9 @@ mod tests {
             &mut decoded_bytes,
         );
 
-        assert_eq!(&decoded_bytes[..], b"");
+        // this is taken from debug logs and not debugger/packets, so might be incorrect
+        let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
+
+        assert_eq!(&decoded_bytes[..], expected);
     }
 }
