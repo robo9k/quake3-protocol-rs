@@ -296,11 +296,15 @@ impl Huffman {
         B: TryInto<&'a BitSlice<u8, Lsb0>>,
     {
         println!("decode {} bytes", length);
+
         let bits = match bits.try_into() {
             Ok(bits) => bits,
             Err(_) => panic!(),
         };
         let mut bits = bits.iter().by_vals();
+
+        bytes.reserve(length);
+
         let mut node_index = Self::ROOT;
         let mut written = 0;
         while written < length {
