@@ -1,5 +1,5 @@
 use bitvec::order::Lsb0;
-use bitvec::slice::BitValIter;
+use bitvec::slice::BitSlice;
 use bytes::{BufMut, BytesMut};
 
 // if this is actually index into the arena, can't be outsid of MAX_NODES
@@ -291,8 +291,16 @@ impl Huffman {
         println!();
     }
 
-    pub fn decode(&mut self, bits: &mut BitValIter<u8, Lsb0>, length: usize, bytes: &mut BytesMut) {
+    pub fn decode<'a, B>(&mut self, bits: B, length: usize, bytes: &mut BytesMut)
+    where
+        B: TryInto<&'a BitSlice<u8, Lsb0>>,
+    {
         println!("decode {} bytes", length);
+        let bits = match bits.try_into() {
+            Ok(bits) => bits,
+            Err(_) => panic!(),
+        };
+        let mut bits = bits.iter().by_vals();
         let mut node_index = Self::ROOT;
         let mut written = 0;
         while written < length {
@@ -371,16 +379,11 @@ mod tests {
             20 0a b8 75 91 26 12 6e 92 25 65 c9 00       
         "
         );
-        let encoded_bits = BitSlice::<_, Lsb0>::from_slice(&encoded_bytes);
         // there's a u16 after "connect "
         let decoded_len = 0x0128;
         let mut decoded_bytes = BytesMut::new();
 
-        huff.decode(
-            &mut encoded_bits.iter().by_vals(),
-            decoded_len,
-            &mut decoded_bytes,
-        );
+        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes);
 
         let expected = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
         assert_eq!(&decoded_bytes[..], expected);
