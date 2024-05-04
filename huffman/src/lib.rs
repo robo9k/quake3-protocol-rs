@@ -93,10 +93,18 @@ impl Huffman {
         next
     }
 
+    fn node_ref(&self, index: NodeIndex) -> &Node {
+        self.tree[index.0].as_ref().unwrap()
+    }
+
+    fn node_mut(&mut self, index: NodeIndex) -> &mut Node {
+        self.tree[index.0].as_mut().unwrap()
+    }
+
     fn block_leader(&self, index: NodeIndex) -> NodeIndex {
         let mut i = index.0;
-        let weight = self.tree[i].as_ref().unwrap().weight();
-        while i >= 0 && self.tree[i].as_ref().unwrap().weight() == weight {
+        let weight = self.node_ref(index).weight();
+        while i >= 0 && self.node_ref(NodeIndex(i)).weight() == weight {
             if i == 0 {
                 return NodeIndex(0);
             }
@@ -108,8 +116,8 @@ impl Huffman {
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
         println!("swap {:?} ↔ {:?}", a, b);
 
-        let a_parent = self.tree[a.0].as_ref().unwrap().parent().unwrap();
-        let b_parent = self.tree[b.0].as_ref().unwrap().parent().unwrap();
+        let a_parent = self.node_ref(a).parent().unwrap();
+        let b_parent = self.node_ref(b).parent().unwrap();
 
         fn set_parent(node: &mut Node, index: NodeIndex) {
             match node {
@@ -120,27 +128,27 @@ impl Huffman {
         }
 
         self.tree.swap(a.0, b.0);
-        set_parent(self.tree[a.0].as_mut().unwrap(), a_parent);
-        set_parent(self.tree[b.0].as_mut().unwrap(), b_parent);
+        set_parent(self.node_mut(a), a_parent);
+        set_parent(self.node_mut(b), b_parent);
 
-        match self.tree[a.0].as_ref().unwrap() {
+        match self.node_ref(a) {
             &Node::NotYetTransmitted { .. } => unreachable!(),
             &Node::Leaf { symbol, .. } => {
                 self.symbol_index[symbol.0 as usize] = Some(a);
             }
             &Node::Internal { left, right, .. } => {
-                set_parent(self.tree[left.0].as_mut().unwrap(), a);
-                set_parent(self.tree[right.0].as_mut().unwrap(), a);
+                set_parent(self.node_mut(left), a);
+                set_parent(self.node_mut(right), a);
             }
         }
-        match self.tree[b.0].as_ref().unwrap() {
+        match self.node_ref(b) {
             &Node::NotYetTransmitted { .. } => unreachable!(),
             &Node::Leaf { symbol, .. } => {
                 self.symbol_index[symbol.0 as usize] = Some(b);
             }
             &Node::Internal { left, right, .. } => {
-                set_parent(self.tree[left.0].as_mut().unwrap(), b);
-                set_parent(self.tree[right.0].as_mut().unwrap(), b);
+                set_parent(self.node_mut(left), b);
+                set_parent(self.node_mut(right), b);
             }
         }
     }
@@ -154,7 +162,7 @@ impl Huffman {
             let leaf_index = self.next();
             let nyt_index = self.next();
 
-            let nyt_parent = self.tree[self.nyt.0].as_ref().unwrap().parent();
+            let nyt_parent = self.node_ref(self.nyt).parent();
 
             let internal = Node::Internal {
                 parent: nyt_parent,
@@ -193,7 +201,7 @@ impl Huffman {
         };
 
         while let Some(node_index) = node {
-            let node_parent = self.tree[node_index.0].as_ref().unwrap().parent();
+            let node_parent = self.node_ref(node_index).parent();
 
             let leader = self.block_leader(node_index);
             println!("leader {:?}", leader);
@@ -204,8 +212,7 @@ impl Huffman {
                 self.graphviz();
             }
 
-            let n = self.tree[node_index.0].as_mut().unwrap();
-            match n {
+            match self.node_mut(node_index) {
                 Node::NotYetTransmitted { .. } => unreachable!(),
                 Node::Leaf { weight, .. } => *weight = NodeWeight(weight.0 + 1),
                 Node::Internal { weight, .. } => *weight = NodeWeight(weight.0 + 1),
@@ -308,7 +315,7 @@ impl Huffman {
         let mut node_index = Self::ROOT;
         let mut written = 0;
         while written < length {
-            let node = self.tree[node_index.0].as_ref().unwrap();
+            let node = self.node_ref(node_index);
             match *node {
                 Node::NotYetTransmitted { .. } => {
                     let mut value = 0;
