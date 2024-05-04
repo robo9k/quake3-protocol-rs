@@ -270,7 +270,18 @@ impl Huffman {
                         format!("<id>@{}|<weight>{}|<symbol>-", i, weight.0)
                     }
                 };
-                println!("\t\t{} [shape={},label=\"{}\"]", i, shape, label);
+                let style = match node {
+                    Node::NotYetTransmitted { .. } => "style=dashed,",
+                    Node::Leaf { .. } => "",
+                    Node::Internal { .. } => {
+                        if self.root.0 == i {
+                            "style=bold,"
+                        } else {
+                            ""
+                        }
+                    }
+                };
+                println!("\t\t{} [shape={},{}label=\"{}\"]", i, shape, style, label);
             });
         println!("\t}}");
 
