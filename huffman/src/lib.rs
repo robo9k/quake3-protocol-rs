@@ -149,12 +149,12 @@ impl Huffman {
                 self.node_mut(right).set_parent(a);
             }
         }
-        match self.node_ref(b) {
-            &Node::NotYetTransmitted { .. } => unreachable!(),
-            &Node::Leaf { symbol, .. } => {
+        match *self.node_ref(b) {
+            Node::NotYetTransmitted { .. } => unreachable!(),
+            Node::Leaf { symbol, .. } => {
                 self.symbol_index[symbol.0 as usize] = Some(b);
             }
-            &Node::Internal { left, right, .. } => {
+            Node::Internal { left, right, .. } => {
                 self.node_mut(left).set_parent(b);
                 self.node_mut(right).set_parent(b);
             }
@@ -278,12 +278,9 @@ impl Huffman {
             .filter(|(_i, n)| n.is_some())
             .for_each(|(i, n)| {
                 let node = n.as_ref().unwrap();
-                match node {
-                    Node::Internal { left, right, .. } => {
-                        println!("\t{} -> {}:id [label=0]", i, left.0);
-                        println!("\t{} -> {}:id [label=1]", i, right.0);
-                    }
-                    _ => {}
+                if let Node::Internal { left, right, .. } = node {
+                    println!("\t{} -> {}:id [label=0]", i, left.0);
+                    println!("\t{} -> {}:id [label=1]", i, right.0);
                 }
             });
 
