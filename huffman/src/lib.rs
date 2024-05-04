@@ -38,7 +38,7 @@ enum Node {
 }
 
 impl Node {
-    fn parent_index(&self) -> Option<NodeIndex> {
+    fn parent(&self) -> Option<NodeIndex> {
         match *self {
             Node::NotYetTransmitted { parent } => parent,
             Node::Leaf { parent, .. } => Some(parent),
@@ -109,8 +109,8 @@ impl Huffman {
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
         println!("swap {:?} ↔ {:?}", a, b);
 
-        let a_parent = self.tree[a.0].as_ref().unwrap().parent_index().unwrap();
-        let b_parent = self.tree[b.0].as_ref().unwrap().parent_index().unwrap();
+        let a_parent = self.tree[a.0].as_ref().unwrap().parent().unwrap();
+        let b_parent = self.tree[b.0].as_ref().unwrap().parent().unwrap();
 
         fn set_parent(node: &mut Node, index: NodeIndex) {
             match node {
@@ -155,7 +155,7 @@ impl Huffman {
             let leaf_index = self.next();
             let nyt_index = self.next();
 
-            let nyt_parent = self.tree[self.nyt.0].as_ref().unwrap().parent_index();
+            let nyt_parent = self.tree[self.nyt.0].as_ref().unwrap().parent();
 
             let internal = Node::Internal {
                 parent: nyt_parent,
@@ -194,7 +194,7 @@ impl Huffman {
         };
 
         while let Some(node_index) = node {
-            let node_parent = self.tree[node_index.0].as_ref().unwrap().parent_index();
+            let node_parent = self.tree[node_index.0].as_ref().unwrap().parent();
 
             let leader = self.block_leader(node_index);
             println!("leader {:?}", leader);
