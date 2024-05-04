@@ -131,7 +131,7 @@ impl Huffman {
     }
 
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
-        println!("swap nodes {} ↔ {}", a.0, b.0);
+        println!("swap nodes @{} ↔ @{}", a.0, b.0);
 
         let a_parent = self.node_ref(a).parent().unwrap();
         let b_parent = self.node_ref(b).parent().unwrap();
@@ -164,7 +164,7 @@ impl Huffman {
 
     fn insert(&mut self, symbol: Symbol) {
         let symbol_index = self.symbol_index[symbol.0 as usize];
-        println!("insert symbol {} → {:?}", symbol.0, symbol_index);
+        println!("insert symbol {:#04X} → {:?}", symbol.0, symbol_index);
 
         let mut node = if symbol_index.is_none() {
             let internal_index = self.nyt;
@@ -209,23 +209,22 @@ impl Huffman {
             symbol_index
         };
 
-        while let Some(node_index) = node {
-            let node_parent = self.node_ref(node_index).parent();
-
+        while let Some(mut node_index) = node {
             let leader = self.block_leader(node_index);
-            println!("leader for {}: {}", node_index.0, leader.0);
+            println!("leader for node @{}: @{}", node_index.0, leader.0);
 
-            if leader != node_index && Some(leader) != node_parent {
+            if leader != node_index && Some(leader) != self.node_ref(node_index).parent() {
                 self.swap_nodes(node_index, leader);
-                println!("swapped node {} and leader {}", node_index.0, leader.0);
+                println!("swapped node @{} and leader @{}", node_index.0, leader.0);
                 self.graphviz();
+                node_index = leader;
             }
 
             self.node_mut(node_index).increase_weight();
-            println!("increased node {} weight", node_index.0);
+            println!("increased node @{} weight", node_index.0);
             self.graphviz();
 
-            node = node_parent;
+            node = self.node_ref(node_index).parent();
         }
     }
 
@@ -258,17 +257,20 @@ impl Huffman {
                     }
                 };
                 let style = match node {
-                    Node::NotYetTransmitted { .. } => "style=dashed,",
-                    Node::Leaf { .. } => "",
+                    Node::NotYetTransmitted { .. } => "dashed",
+                    Node::Leaf { .. } => "\"\"",
                     Node::Internal { .. } => {
                         if Self::ROOT.0 == i {
-                            "style=bold,"
+                            "bold"
                         } else {
-                            ""
+                            "\"\""
                         }
                     }
                 };
-                println!("\t\t{} [shape={},{}label=\"{}\"]", i, shape, style, label);
+                println!(
+                    "\t\t{} [shape={},style={},label=\"{}\"]",
+                    i, shape, style, label
+                );
             });
         println!("\t}}");
 
@@ -320,6 +322,7 @@ impl Huffman {
                     written += 1;
                     self.insert(Symbol(value));
                     node_index = Self::ROOT;
+                    println!("---");
                 }
                 Node::Leaf { symbol, .. } => {
                     println!("decode leaf {:#04X}", symbol.0);
@@ -327,11 +330,13 @@ impl Huffman {
                     written += 1;
                     self.insert(symbol);
                     node_index = Self::ROOT;
+                    println!("---");
                 }
                 Node::Internal { left, right, .. } => {
                     let bit = bits.next().unwrap();
-                    println!("decode bit {}", bit);
                     node_index = if bit { right } else { left };
+                    println!("decode bit {} → @{}", bit, node_index.0);
+                    println!("---");
                 }
             }
         }
@@ -343,8 +348,8 @@ mod tests {
     use super::*;
     use bitvec::slice::BitSlice;
 
-    #[test]
-    fn huffman_new() {
+    //#[test]
+    fn huffman_adaptive_decode() {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
         let encoded_bytes = hex_literal::hex!(
@@ -371,8 +376,29 @@ mod tests {
         let decoded_len = 0x0128;
         let mut decoded_bytes = BytesMut::new();
 
-        println!("initial tree");
-        huff.graphviz();
+        huff.decode(
+            &mut encoded_bits.iter().by_vals(),
+            decoded_len,
+            &mut decoded_bytes,
+        );
+
+        // this is taken from debug logs and not debugger/packets, so might be incorrect
+        let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
+
+        assert_eq!(&decoded_bytes[..], expected);
+    }
+
+    #[test]
+    fn huffman_adaptive_decode_simple() {
+        let mut huff = Huffman::adaptive();
+        let encoded_bytes = hex_literal::hex!(
+            "
+            01 23 45 67 89 AB CD EF
+        "
+        );
+        let encoded_bits = BitSlice::<_, Lsb0>::from_slice(&encoded_bytes);
+        let decoded_len = 10;
+        let mut decoded_bytes = BytesMut::new();
 
         huff.decode(
             &mut encoded_bits.iter().by_vals(),
@@ -383,8 +409,7 @@ mod tests {
         let decoded = std::str::from_utf8(&decoded_bytes[..]).unwrap();
         println!("decoded: {:?}", decoded);
 
-        // this is taken from debug logs and not debugger/packets, so might be incorrect
-        let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
+        let expected = b"idk";
 
         assert_eq!(&decoded_bytes[..], expected);
     }
