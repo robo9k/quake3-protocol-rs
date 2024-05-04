@@ -94,12 +94,13 @@ impl Huffman {
 
         tree[Self::ROOT.0] = Some(Node::NotYetTransmitted { parent: None });
         let nyt = Self::ROOT;
+        let next = NodeIndex(nyt.0 + 1);
 
         Self {
             tree,
             symbol_index,
             nyt,
-            next: NodeIndex(1),
+            next,
         }
     }
 
@@ -120,8 +121,8 @@ impl Huffman {
     fn block_leader(&self, index: NodeIndex) -> NodeIndex {
         let mut i = index.0;
         let weight = self.node_ref(index).weight();
-        while i >= 0 && self.node_ref(NodeIndex(i)).weight() == weight {
-            if i == 0 {
+        while i >= Self::ROOT.0 && self.node_ref(NodeIndex(i)).weight() == weight {
+            if i == Self::ROOT.0 {
                 return NodeIndex(0);
             }
             i -= 1;
