@@ -257,16 +257,18 @@ impl Huffman {
             .for_each(|(i, n)| {
                 let node = n.as_ref().unwrap();
                 let shape = match node {
-                    Node::NotYetTransmitted { .. } => "circle",
-                    Node::Leaf { .. } => "square",
-                    Node::Internal { .. } => "rect",
+                    Node::NotYetTransmitted { .. } => "Mrecord",
+                    Node::Leaf { .. } => "Mrecord",
+                    Node::Internal { .. } => "record",
                 };
                 let label = match node {
-                    Node::NotYetTransmitted { .. } => format!("{}: NYT", i),
+                    Node::NotYetTransmitted { .. } => format!("<id>@{}|<weight>0|<symbol>NYT", i),
                     Node::Leaf { weight, symbol, .. } => {
-                        format!("{}, {}: {:#04X}", i, weight.0, symbol.0)
+                        format!("<id>@{}|<weight>{}|<symbol>{:#04X}", i, weight.0, symbol.0)
                     }
-                    Node::Internal { weight, .. } => format!("{}, {}", i, weight.0),
+                    Node::Internal { weight, .. } => {
+                        format!("<id>@{}|<weight>{}|<symbol>-", i, weight.0)
+                    }
                 };
                 println!("\t\t{} [shape={},label=\"{}\"]", i, shape, label);
             });
@@ -281,8 +283,8 @@ impl Huffman {
                 let node = n.as_ref().unwrap();
                 match node {
                     Node::Internal { left, right, .. } => {
-                        println!("\t{} -> {} [label=0]", i, left.0);
-                        println!("\t{} -> {} [label=1]", i, right.0);
+                        println!("\t{} -> {}:id [label=0]", i, left.0);
+                        println!("\t{} -> {}:id [label=1]", i, right.0);
                     }
                     _ => {}
                 }
