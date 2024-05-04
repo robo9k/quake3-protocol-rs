@@ -63,26 +63,25 @@ const MAX_NODES: usize = MAX_SYMBOLS * 2 - 1;
 pub struct Huffman {
     tree: [Option<Node>; MAX_NODES],
     symbol_index: [Option<NodeIndex>; MAX_SYMBOLS],
-    root: NodeIndex,
     nyt: NodeIndex,
     next: NodeIndex,
 }
 
 impl Huffman {
+    const ROOT: NodeIndex = NodeIndex(0);
+
     pub fn new() -> Self {
         const NODE: Option<Node> = None;
         let mut tree = [NODE; MAX_NODES];
 
         let symbol_index = [None; MAX_SYMBOLS];
 
-        tree[0] = Some(Node::NotYetTransmitted { parent: None });
-        let nyt = NodeIndex(0);
-        let root = nyt;
+        tree[Self::ROOT.0] = Some(Node::NotYetTransmitted { parent: None });
+        let nyt = Self::ROOT;
 
         Self {
             tree,
             symbol_index,
-            root,
             nyt,
             next: NodeIndex(1),
         }
@@ -220,7 +219,6 @@ impl Huffman {
 
     fn print(&self) {
         println!("--- 🌳 ---");
-        println!("root {:?}", self.root);
         println!("nyt {:?}", self.nyt);
         println!("next {:?}", self.next);
         println!();
@@ -274,7 +272,7 @@ impl Huffman {
                     Node::NotYetTransmitted { .. } => "style=dashed,",
                     Node::Leaf { .. } => "",
                     Node::Internal { .. } => {
-                        if self.root.0 == i {
+                        if Self::ROOT.0 == i {
                             "style=bold,"
                         } else {
                             ""
@@ -307,7 +305,7 @@ impl Huffman {
 
     pub fn decode(&mut self, bits: &mut BitValIter<u8, Lsb0>, length: usize, bytes: &mut BytesMut) {
         println!("decode {:?} bytes", length);
-        let mut node_index = self.root;
+        let mut node_index = Self::ROOT;
         let mut written = 0;
         while written < length {
             let node = self.tree[node_index.0].as_ref().unwrap();
@@ -335,14 +333,14 @@ impl Huffman {
                     bytes.put_u8(value);
                     written += 1;
                     self.insert(Symbol(value));
-                    node_index = self.root;
+                    node_index = Self::ROOT;
                 }
                 Node::Leaf { symbol, .. } => {
                     println!("decode leaf {:?}", symbol);
                     bytes.put_u8(symbol.0);
                     written += 1;
                     self.insert(symbol);
-                    node_index = self.root;
+                    node_index = Self::ROOT;
                 }
                 Node::Internal { left, right, .. } => {
                     let bit = bits.next().unwrap();
