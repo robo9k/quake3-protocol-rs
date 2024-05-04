@@ -382,12 +382,7 @@ mod tests {
             &mut decoded_bytes,
         );
 
-        let decoded = std::str::from_utf8(&decoded_bytes).unwrap();
-        println!("decoded: {}", decoded);
-
-        // this is taken from debug logs and not debugger/packets, so might be incorrect
-        let expected = b"n\\UnnamedPlayer\\t\\0\\model\\sarge\\hmodel\\sarge\\g_redteam\\\\g_blueteam\\\\c1\\4\\c2\\5\\hc\\100\\w\\0\\l\\0\\tt\\0\\tl\\0";
-
+        let expected = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
         assert_eq!(&decoded_bytes[..], expected);
     }
 }
