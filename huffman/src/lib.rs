@@ -46,6 +46,14 @@ impl Node {
         }
     }
 
+    fn set_parent(&mut self, index: NodeIndex) {
+        match self {
+            Node::NotYetTransmitted { parent } => *parent = Some(index),
+            Node::Leaf { parent, .. } => *parent = index,
+            Node::Internal { parent, .. } => *parent = Some(index),
+        }
+    }
+
     fn weight(&self) -> NodeWeight {
         match *self {
             Node::NotYetTransmitted { .. } => NodeWeight(0),
@@ -119,17 +127,9 @@ impl Huffman {
         let a_parent = self.node_ref(a).parent().unwrap();
         let b_parent = self.node_ref(b).parent().unwrap();
 
-        fn set_parent(node: &mut Node, index: NodeIndex) {
-            match node {
-                Node::NotYetTransmitted { parent } => *parent = Some(index),
-                Node::Leaf { parent, .. } => *parent = index,
-                Node::Internal { parent, .. } => *parent = Some(index),
-            }
-        }
-
         self.tree.swap(a.0, b.0);
-        set_parent(self.node_mut(a), a_parent);
-        set_parent(self.node_mut(b), b_parent);
+        self.node_mut(a).set_parent(a_parent);
+        self.node_mut(b).set_parent(b_parent);
 
         match self.node_ref(a) {
             &Node::NotYetTransmitted { .. } => unreachable!(),
@@ -137,8 +137,8 @@ impl Huffman {
                 self.symbol_index[symbol.0 as usize] = Some(a);
             }
             &Node::Internal { left, right, .. } => {
-                set_parent(self.node_mut(left), a);
-                set_parent(self.node_mut(right), a);
+                self.node_mut(left).set_parent(a);
+                self.node_mut(right).set_parent(a);
             }
         }
         match self.node_ref(b) {
@@ -147,8 +147,8 @@ impl Huffman {
                 self.symbol_index[symbol.0 as usize] = Some(b);
             }
             &Node::Internal { left, right, .. } => {
-                set_parent(self.node_mut(left), b);
-                set_parent(self.node_mut(right), b);
+                self.node_mut(left).set_parent(b);
+                self.node_mut(right).set_parent(b);
             }
         }
     }
