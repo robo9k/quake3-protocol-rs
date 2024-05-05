@@ -1,5 +1,6 @@
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+use bitvec::vec::BitVec;
 use bytes::{BufMut, BytesMut};
 
 // if this is actually index into the arena, can't be outsid of MAX_NODES
@@ -228,7 +229,7 @@ impl Huffman {
         }
     }
 
-    fn graphviz(&self) {
+    pub fn graphviz(&self) {
         println!("digraph {{");
 
         // graph attributes
@@ -289,6 +290,64 @@ impl Huffman {
 
         println!("}}");
         println!();
+    }
+
+    fn emit(&self, node: NodeIndex, bits: &mut BitVec<u8, Lsb0>, child: Option<NodeIndex>) {
+        if let Some(parent) = self.node_ref(node).parent() {
+            self.emit(parent, bits, Some(node));
+        }
+        if let Some(child) = child {
+            let node = self.node_ref(node);
+            let bit = match *node {
+                Node::NotYetTransmitted { .. } => unreachable!(),
+                Node::Leaf { .. } => unreachable!(),
+                Node::Internal { left, right, .. } => {
+                    if child == left {
+                        println!("emit left child @{}: 0", child.0);
+                        false
+                    } else if child == right {
+                        println!("emit right child @{}: 1", child.0);
+                        true
+                    } else {
+                        unreachable!()
+                    }
+                }
+            };
+            bits.push(bit);
+        }
+    }
+
+    pub fn encode(&mut self, bytes: &[u8]) -> BitVec<u8, Lsb0> {
+        println!("encode {} bytes", bytes.len());
+
+        let mut bits: BitVec<u8, Lsb0> = BitVec::new();
+
+        for symbol in bytes.iter().copied() {
+            println!("encode symbol {:#04X}", symbol);
+            let symbol_index = self.symbol_index[symbol as usize];
+
+            if let Some(symbol_index) = symbol_index {
+                println!("encode symbol path @{}", symbol);
+                self.emit(symbol_index, &mut bits, None);
+            } else {
+                println!("encode NYT @{}", self.nyt.0);
+                self.emit(self.nyt, &mut bits, None);
+
+                println!("encode new symbol bits {:#04X}", symbol);
+                bits.push((symbol >> 7) & 1 != 0);
+                bits.push((symbol >> 6) & 1 != 0);
+                bits.push((symbol >> 5) & 1 != 0);
+                bits.push((symbol >> 4) & 1 != 0);
+                bits.push((symbol >> 3) & 1 != 0);
+                bits.push((symbol >> 2) & 1 != 0);
+                bits.push((symbol >> 1) & 1 != 0);
+                bits.push((symbol >> 0) & 1 != 0);
+            }
+
+            self.insert(Symbol(symbol));
+        }
+
+        bits
     }
 
     pub fn decode<'a, B>(&mut self, bits: B, length: usize, bytes: &mut BytesMut)
@@ -361,6 +420,71 @@ mod tests {
     use bitvec::slice::BitSlice;
 
     #[test]
+    fn huffman_adaptive_encode_simple() {
+        let mut huff = Huffman::adaptive();
+
+        let decoded = b"aab";
+
+        let bits = huff.encode(&decoded[..]);
+
+        let expected = hex_literal::hex!(
+            "
+            86 19 01
+        "
+        );
+
+        assert_eq!(bits.as_raw_slice(), &expected[..]);
+    }
+
+    #[test]
+    fn huffman_adaptive_decode_simple() {
+        let mut huff = Huffman::adaptive();
+        let encoded_bytes = hex_literal::hex!(
+            "
+            86 19 01
+        "
+        );
+        let decoded_len = 3;
+        let mut decoded_bytes = BytesMut::new();
+
+        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes);
+
+        let expected = b"aab";
+        assert_eq!(&decoded_bytes[..], expected);
+    }
+
+    #[test]
+    fn huffman_adaptive_encode() {
+        let mut huff = Huffman::adaptive();
+
+        let decoded = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
+
+        let bits = huff.encode(&decoded[..]);
+
+        let expected = hex_literal::hex!(
+            "
+            44 74 30 8e 05 0c c7 26 
+            c3 14 ec 8e f9 67 d0 1a 4e 29 98 01 c7 c3 7a 30 
+            2c 2c 19 1c 13 87 c2 de 71 0a 5c ac 30 cd 40 ce 
+            3a ca af 96 2a b0 d9 3a b7 b0 fd 4d a8 0e c9 ba 
+            79 4c 28 0a c4 0a 4f 83 02 9b 9f 69 e4 0a c3 38 
+            47 9b cf 22 af 61 f6 64 6f 13 7c a3 ae 1f af 06 
+            52 b7 3c a3 06 5f 3a f4 8f 66 d2 40 ac ee 2b 2d 
+            ea 38 18 f9 b7 f2 36 37 80 ea 17 e9 d5 40 58 f7 
+            0f c6 b2 3a 85 e5 bb ca f7 78 77 09 2c e1 e5 7b 
+            cc ad 59 0f 3c ea 67 2a 37 1a 31 c7 83 e5 02 d7 
+            d1 dd c0 73 eb e6 5d 4c 32 87 a4 a4 8d 2e 1b 08 
+            0b 38 11 ac 7b 9a 34 16 e2 e6 d1 3b f0 f8 f2 99 
+            da c4 91 b7 4b 53 cf 82 a6 da 10 61 89 b0 5b 6c 
+            6e c3 46 e3 b7 7c 19 62 38 ac 42 48 23 ab 11 e6 
+            20 0a b8 75 91 26 12 6e 92 25 65 c9 00       
+        "
+        );
+
+        assert_eq!(bits.as_raw_slice(), &expected[..]);
+    }
+
+    //#[test]
     fn huffman_adaptive_decode() {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
