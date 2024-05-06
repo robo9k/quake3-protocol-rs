@@ -100,3 +100,10 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 | `svc_EOF`               | ❌        | ❌         |
 | `svc_voipSpeex`         | ❌        | ❌         |
 | `svc_voipOpus`          | ❌        | ❌         |
+
+#### Huffman
+
+| Mode                 | decode | encode |
+| -------------------- | :----: | :----: |
+| adaptive             | ✔️     | ✔️     |
+| fixed                | ❌     | ❌     |
