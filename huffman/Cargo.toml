@@ -5,12 +5,21 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
 
+[[bench]]
+name = "encode"
+harness = false
+
+[[bench]]
+name = "decode"
+harness = false
+
 [dependencies]
 bitvec = "1.0.1"
 bytes = "1.6.0"
 
+[dev-dependencies]
+criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support", "rayon"] }
+hex-literal = "0.4.1"
+
 [badges]
 maintenance = { status = "experimental" }
-
-[dev-dependencies]
-hex-literal = "0.4.1"

@@ -132,7 +132,7 @@ impl Huffman {
     }
 
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
-        println!("swap nodes @{} ↔ @{}", a.0, b.0);
+        //println!("swap nodes @{} ↔ @{}", a.0, b.0);
 
         let a_parent = self.node_ref(a).parent().unwrap();
         let b_parent = self.node_ref(b).parent().unwrap();
@@ -165,7 +165,7 @@ impl Huffman {
 
     fn insert(&mut self, symbol: Symbol) {
         let symbol_index = self.symbol_index[symbol.0 as usize];
-        println!("insert symbol {:#04X} → {:?}", symbol.0, symbol_index);
+        //println!("insert symbol {:#04X} → {:?}", symbol.0, symbol_index);
 
         let mut node = if symbol_index.is_none() {
             let internal_index = self.nyt;
@@ -202,8 +202,8 @@ impl Huffman {
             self.tree[nyt_index.0] = Some(nyt);
             self.nyt = nyt_index;
 
-            println!("inserted new nodes for symbol");
-            self.graphviz();
+            //println!("inserted new nodes for symbol");
+            //self.graphviz();
 
             nyt_parent
         } else {
@@ -212,18 +212,18 @@ impl Huffman {
 
         while let Some(mut node_index) = node {
             let leader = self.block_leader(node_index);
-            println!("leader for node @{}: @{}", node_index.0, leader.0);
+            //println!("leader for node @{}: @{}", node_index.0, leader.0);
 
             if leader != node_index && Some(leader) != self.node_ref(node_index).parent() {
                 self.swap_nodes(node_index, leader);
-                println!("swapped node @{} and leader @{}", node_index.0, leader.0);
-                self.graphviz();
+                //println!("swapped node @{} and leader @{}", node_index.0, leader.0);
+                //self.graphviz();
                 node_index = leader;
             }
 
             self.node_mut(node_index).increase_weight();
-            println!("increased node @{} weight", node_index.0);
-            self.graphviz();
+            //println!("increased node @{} weight", node_index.0);
+            //self.graphviz();
 
             node = self.node_ref(node_index).parent();
         }
@@ -303,10 +303,10 @@ impl Huffman {
                 Node::Leaf { .. } => unreachable!(),
                 Node::Internal { left, right, .. } => {
                     if child == left {
-                        println!("emit left child @{}: 0", child.0);
+                        //println!("emit left child @{}: 0", child.0);
                         false
                     } else if child == right {
-                        println!("emit right child @{}: 1", child.0);
+                        //println!("emit right child @{}: 1", child.0);
                         true
                     } else {
                         unreachable!()
@@ -318,22 +318,22 @@ impl Huffman {
     }
 
     pub fn encode(&mut self, bytes: &[u8]) -> BitVec<u8, Lsb0> {
-        println!("encode {} bytes", bytes.len());
+        //println!("encode {} bytes", bytes.len());
 
         let mut bits: BitVec<u8, Lsb0> = BitVec::new();
 
         for symbol in bytes.iter().copied() {
-            println!("encode symbol {:#04X}", symbol);
+            //println!("encode symbol {:#04X}", symbol);
             let symbol_index = self.symbol_index[symbol as usize];
 
             if let Some(symbol_index) = symbol_index {
-                println!("encode symbol path @{}", symbol);
+                //println!("encode symbol path @{}", symbol);
                 self.emit(symbol_index, &mut bits, None);
             } else {
-                println!("encode NYT @{}", self.nyt.0);
+                //println!("encode NYT @{}", self.nyt.0);
                 self.emit(self.nyt, &mut bits, None);
 
-                println!("encode new symbol bits {:#04X}", symbol);
+                //println!("encode new symbol bits {:#04X}", symbol);
                 bits.push((symbol >> 7) & 1 != 0);
                 bits.push((symbol >> 6) & 1 != 0);
                 bits.push((symbol >> 5) & 1 != 0);
@@ -354,7 +354,7 @@ impl Huffman {
     where
         B: TryInto<&'a BitSlice<u8, Lsb0>>,
     {
-        println!("decode {} bytes", length);
+        //println!("decode {} bytes", length);
 
         let bits = match bits.try_into() {
             Ok(bits) => bits,
@@ -388,26 +388,26 @@ impl Huffman {
                     let b7 = bits.next().unwrap();
                     value |= (b7 as u8) << 0;
 
-                    println!("decode NYT {:#04X}", value);
+                    //println!("decode NYT {:#04X}", value);
                     bytes.put_u8(value);
                     written += 1;
                     self.insert(Symbol(value));
                     node_index = Self::ROOT;
-                    println!("---");
+                    //println!("---");
                 }
                 Node::Leaf { symbol, .. } => {
-                    println!("decode leaf {:#04X}", symbol.0);
+                    //println!("decode leaf {:#04X}", symbol.0);
                     bytes.put_u8(symbol.0);
                     written += 1;
                     self.insert(symbol);
                     node_index = Self::ROOT;
-                    println!("---");
+                    //println!("---");
                 }
                 Node::Internal { left, right, .. } => {
                     let bit = bits.next().unwrap();
                     node_index = if bit { right } else { left };
-                    println!("decode bit {} → @{}", bit, node_index.0);
-                    println!("---");
+                    //println!("decode bit {} → @{}", bit, node_index.0);
+                    //println!("---");
                 }
             }
         }

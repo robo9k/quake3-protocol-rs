@@ -15,7 +15,7 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 - Add rustdoc, `must_use` etc.
 - Build rustdoc for GitHub Pages
 - Add assertions
-- Add benchmarks
+- Add benchmarks for encode, decode and adaptive ✔️, fixed ❌
 - Add fuzzing
 - https://github.com/rust-secure-code/safety-dance
 - GitHub Actions CI
