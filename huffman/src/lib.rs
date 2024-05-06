@@ -122,7 +122,7 @@ impl Huffman {
     fn block_leader(&self, index: NodeIndex) -> NodeIndex {
         let mut i = index.0;
         let weight = self.node_ref(index).weight();
-        while i >= Self::ROOT.0 && self.node_ref(NodeIndex(i)).weight() == weight {
+        while self.node_ref(NodeIndex(i)).weight() == weight {
             if i == Self::ROOT.0 {
                 return NodeIndex(0);
             }
@@ -484,7 +484,7 @@ mod tests {
         assert_eq!(bits.as_raw_slice(), &expected[..]);
     }
 
-    //#[test]
+    #[test]
     fn huffman_adaptive_decode() {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
