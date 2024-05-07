@@ -1,8 +1,10 @@
-[workspace]
+[profile.bench]
+debug = true
 
+[workspace]
+resolver = "2"
 members = [
     "quake3",
     "protocol",
     "huffman",
 ]
-resolver = "2"
