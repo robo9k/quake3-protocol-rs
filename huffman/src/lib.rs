@@ -39,6 +39,7 @@ enum Node {
 }
 
 impl Node {
+    #[inline]
     fn parent(&self) -> Option<NodeIndex> {
         match *self {
             Node::NotYetTransmitted { parent } => parent,
@@ -47,6 +48,7 @@ impl Node {
         }
     }
 
+    #[inline]
     fn set_parent(&mut self, index: NodeIndex) {
         match self {
             Node::NotYetTransmitted { parent } => *parent = Some(index),
@@ -55,6 +57,7 @@ impl Node {
         }
     }
 
+    #[inline]
     fn weight(&self) -> NodeWeight {
         match *self {
             Node::NotYetTransmitted { .. } => NodeWeight(0),
@@ -63,6 +66,7 @@ impl Node {
         }
     }
 
+    #[inline]
     fn increase_weight(&mut self) {
         match self {
             Node::NotYetTransmitted { .. } => unreachable!(),
@@ -105,16 +109,19 @@ impl Huffman {
         }
     }
 
+    #[inline]
     fn next(&mut self) -> NodeIndex {
         let next = self.next;
         self.next = NodeIndex(next.0 + 1);
         next
     }
 
+    #[inline]
     fn node_ref(&self, index: NodeIndex) -> &Node {
         self.tree[index.0].as_ref().unwrap()
     }
 
+    #[inline]
     fn node_mut(&mut self, index: NodeIndex) -> &mut Node {
         self.tree[index.0].as_mut().unwrap()
     }
