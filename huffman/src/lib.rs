@@ -5,6 +5,7 @@ use bytes::{BufMut, BytesMut};
 
 // if this is actually index into the arena, can't be outside of MAX_NODES
 // note that smaller than usize seems to decrease performance
+// note that NonZeroUsize also decreases performance, despite Option<NodeIndex>
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 struct NodeIndex(usize);
@@ -135,7 +136,7 @@ impl Huffman {
         let weight = self.node_ref(index).weight();
         while self.node_ref(NodeIndex(i)).weight() == weight {
             if i == Self::ROOT.0 {
-                return NodeIndex(0);
+                return Self::ROOT;
             }
             i -= 1;
         }
