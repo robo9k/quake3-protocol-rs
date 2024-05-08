@@ -333,6 +333,7 @@ impl Huffman {
     pub fn encode(&mut self, bytes: &[u8]) -> BitVec<u8, Lsb0> {
         //println!("encode {} bytes", bytes.len());
 
+        // TODO: reserving average compressed size should increase performance
         let mut bits: BitVec<u8, Lsb0> = BitVec::new();
 
         for symbol in bytes.iter().copied() {
