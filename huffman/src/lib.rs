@@ -3,15 +3,19 @@ use bitvec::slice::BitSlice;
 use bitvec::vec::BitVec;
 use bytes::{BufMut, BytesMut};
 
-// if this is actually index into the arena, can't be outsid of MAX_NODES
+// if this is actually index into the arena, can't be outside of MAX_NODES
+// note that smaller than usize seems to decrease performance
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 struct NodeIndex(usize);
 
+// while we don't support rebalancing, this could probably be smaller based on observed packet statistics
+// note however that smaller than usize seems to decrease performance
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 struct NodeWeight(u64);
 
+// this is the exact size needed
 #[repr(transparent)]
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 struct Symbol(u8);
