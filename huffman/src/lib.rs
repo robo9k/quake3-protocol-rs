@@ -143,6 +143,7 @@ impl Huffman {
     }
 
     fn swap_nodes(&mut self, a: NodeIndex, b: NodeIndex) {
+        assert!(a != b);
         //println!("swap nodes @{} ↔ @{}", a.0, b.0);
 
         let a_parent = self.node_ref(a).parent().unwrap();
