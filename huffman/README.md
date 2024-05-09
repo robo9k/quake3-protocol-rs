@@ -14,7 +14,6 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 - Build rustdoc for GitHub Pages
 - Add assertions
 - Add benchmarks for encode, decode and adaptive ✔️, fixed ❌
-- Add fuzzing
 - https://github.com/rust-secure-code/safety-dance
 - GitHub Actions CI
 - Publish to crates.io
@@ -23,4 +22,9 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 $ # explicit `perf` CLI path is needed for WSL2, this does not match `uname --kernel-release`
 $ PERF=/usr/lib/linux-tools-5.15.0-105/perf cargo flamegraph --bench decode
 $ $BROWSER flamegraph.svg
+```
+
+```console
+$ cargo +nightly fuzz run decode-adaptive
+$ cargo +nightly fuzz run encode-adaptive
 ```

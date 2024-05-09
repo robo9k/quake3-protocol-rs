@@ -1,0 +1,31 @@
+[package]
+name = "quake3-huffman-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+bytes = "1.6.0"
+libfuzzer-sys = "0.4"
+
+[dependencies.quake3-huffman]
+path = ".."
+
+[[bin]]
+name = "decode-adaptive"
+path = "fuzz_targets/decode_adaptive.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "encode-adaptive"
+path = "fuzz_targets/encode_adaptive.rs"
+test = false
+doc = false
+bench = false
