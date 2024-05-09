@@ -24,9 +24,10 @@ std = [
 ]
 
 [dependencies]
-bitvec = "1.0.1"
-bytes = "1.6.0"
-thiserror = {version = "1.0.60", optional = true }
+bitvec = { version = "1.0.1", default-features = false }
+# technically bytes is no_std but it requires atomics, so doesn't compile on e.g. thumbv6m-none-eabi
+bytes = { version = "1.6.0", default-features = false }
+thiserror = { version = "1.0.60", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support", "rayon"] }
