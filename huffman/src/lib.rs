@@ -9,6 +9,7 @@ extern crate alloc;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
+#[cfg(feature = "alloc")]
 use bitvec::vec::BitVec;
 use bytes::{BufMut, BytesMut};
 
@@ -334,6 +335,7 @@ impl Huffman {
         Ok(())
     }
 
+    #[cfg(feature = "alloc")]
     fn emit(&self, node: NodeIndex, bits: &mut BitVec<u8, Lsb0>, child: Option<NodeIndex>) {
         if let Some(parent) = self.node_ref(node).parent() {
             self.emit(parent, bits, Some(node));
@@ -359,6 +361,8 @@ impl Huffman {
         }
     }
 
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    #[cfg(feature = "alloc")]
     pub fn encode(&mut self, bytes: impl AsRef<[u8]>) -> BitVec<u8, Lsb0> {
         let bytes = bytes.as_ref();
         //println!("encode {} bytes", bytes.len());
@@ -487,6 +491,7 @@ mod tests {
     use super::*;
     use bitvec::slice::BitSlice;
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn huffman_adaptive_encode_simple() {
         let mut huff = Huffman::adaptive();
@@ -523,6 +528,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
     fn huffman_adaptive_encode() {
         let mut huff = Huffman::adaptive();
@@ -589,7 +595,7 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn huffman_adaptive_graphviz() -> core::fmt::Result {
         let huff = Huffman::adaptive();

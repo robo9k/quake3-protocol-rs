@@ -17,7 +17,9 @@ harness = false
 default = [
     "std",
 ]
-alloc = []
+alloc = [
+    "bitvec/alloc",
+]
 std = [
     "alloc",
     "dep:thiserror",
