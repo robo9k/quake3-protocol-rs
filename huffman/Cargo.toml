@@ -16,6 +16,7 @@ harness = false
 [dependencies]
 bitvec = "1.0.1"
 bytes = "1.6.0"
+thiserror = "1.0.60"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support", "rayon"] }

@@ -85,6 +85,19 @@ const MAX_SYMBOLS: usize = u8::MAX as usize + 1;
 
 const MAX_NODES: usize = MAX_SYMBOLS * 2 - 1;
 
+#[derive(thiserror::Error, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[error(transparent)]
+enum DecodeErrorKind {
+    #[error("no more bits")]
+    NoMoreBits,
+    #[error("bits not adressable")]
+    UnadressableBitsError,
+}
+
+#[derive(thiserror::Error, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[error(transparent)]
+pub struct DecodeError(#[from] DecodeErrorKind);
+
 #[derive(/*Copy, Clone,*/ Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Huffman {
     tree: [Option<Node>; MAX_NODES],
@@ -123,12 +136,16 @@ impl Huffman {
 
     #[inline]
     fn node_ref(&self, index: NodeIndex) -> &Node {
-        self.tree[index.0].as_ref().unwrap()
+        self.tree[index.0]
+            .as_ref()
+            .expect("index should point to some node")
     }
 
     #[inline]
     fn node_mut(&mut self, index: NodeIndex) -> &mut Node {
-        self.tree[index.0].as_mut().unwrap()
+        self.tree[index.0]
+            .as_mut()
+            .expect("index should point to some node")
     }
 
     fn block_leader(&self, index: NodeIndex) -> NodeIndex {
@@ -147,8 +164,8 @@ impl Huffman {
         assert!(a != b);
         //println!("swap nodes @{} ↔ @{}", a.0, b.0);
 
-        let a_parent = self.node_ref(a).parent().unwrap();
-        let b_parent = self.node_ref(b).parent().unwrap();
+        let a_parent = self.node_ref(a).parent().expect("node is not the root");
+        let b_parent = self.node_ref(b).parent().expect("node is not the root");
 
         self.tree.swap(a.0, b.0);
         self.node_mut(a).set_parent(a_parent);
@@ -250,12 +267,8 @@ impl Huffman {
 
         // node attributes
         println!("\t{{");
-        self.tree
-            .iter()
-            .enumerate()
-            .filter(|(_i, n)| n.is_some())
-            .for_each(|(i, n)| {
-                let node = n.as_ref().unwrap();
+        self.tree.iter().enumerate().for_each(|(i, n)| {
+            if let Some(node) = n.as_ref() {
                 let shape = match node {
                     Node::NotYetTransmitted { .. } => "Mrecord",
                     Node::Leaf { .. } => "Mrecord",
@@ -285,21 +298,19 @@ impl Huffman {
                     "\t\t{} [shape={},style={},label=\"{}\"]",
                     i, shape, style, label
                 );
-            });
+            }
+        });
         println!("\t}}");
 
         // nodes
-        self.tree
-            .iter()
-            .enumerate()
-            .filter(|(_i, n)| n.is_some())
-            .for_each(|(i, n)| {
-                let node = n.as_ref().unwrap();
+        self.tree.iter().enumerate().for_each(|(i, n)| {
+            if let Some(node) = n.as_ref() {
                 if let Node::Internal { left, right, .. } = node {
                     println!("\t{} -> {}:id [label=0]", i, left.0);
                     println!("\t{} -> {}:id [label=1]", i, right.0);
                 }
-            });
+            }
+        });
 
         println!("}}");
         println!();
@@ -364,16 +375,20 @@ impl Huffman {
         bits
     }
 
-    pub fn decode<'a, B>(&mut self, bits: B, length: usize, bytes: &mut BytesMut)
+    pub fn decode<'a, B>(
+        &mut self,
+        bits: B,
+        length: usize,
+        bytes: &mut BytesMut,
+    ) -> Result<(), DecodeError>
     where
         B: TryInto<&'a BitSlice<u8, Lsb0>>,
     {
         //println!("decode {} bytes", length);
 
-        let bits = match bits.try_into() {
-            Ok(bits) => bits,
-            Err(_) => panic!(),
-        };
+        let bits = bits
+            .try_into()
+            .map_err(|_| DecodeError(DecodeErrorKind::UnadressableBitsError))?;
         let mut bits = bits.iter().by_vals();
 
         bytes.reserve(length);
@@ -385,21 +400,37 @@ impl Huffman {
             match *node {
                 Node::NotYetTransmitted { .. } => {
                     let mut value = 0;
-                    let b0 = bits.next().unwrap();
+                    let b0 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b0 as u8) << 7;
-                    let b1 = bits.next().unwrap();
+                    let b1 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b1 as u8) << 6;
-                    let b2 = bits.next().unwrap();
+                    let b2 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b2 as u8) << 5;
-                    let b3 = bits.next().unwrap();
+                    let b3 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b3 as u8) << 4;
-                    let b4 = bits.next().unwrap();
+                    let b4 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b4 as u8) << 3;
-                    let b5 = bits.next().unwrap();
+                    let b5 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b5 as u8) << 2;
-                    let b6 = bits.next().unwrap();
+                    let b6 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b6 as u8) << 1;
-                    let b7 = bits.next().unwrap();
+                    let b7 = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b7 as u8) << 0;
 
                     //println!("decode NYT {:#04X}", value);
@@ -418,13 +449,17 @@ impl Huffman {
                     //println!("---");
                 }
                 Node::Internal { left, right, .. } => {
-                    let bit = bits.next().unwrap();
+                    let bit = bits
+                        .next()
+                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
                     node_index = if bit { right } else { left };
                     //println!("decode bit {} → @{}", bit, node_index.0);
                     //println!("---");
                 }
             }
         }
+
+        Ok(())
     }
 }
 
@@ -451,7 +486,7 @@ mod tests {
     }
 
     #[test]
-    fn huffman_adaptive_decode_simple() {
+    fn huffman_adaptive_decode_simple() -> Result<(), Box<dyn std::error::Error>> {
         let mut huff = Huffman::adaptive();
         let encoded_bytes = hex_literal::hex!(
             "
@@ -461,10 +496,12 @@ mod tests {
         let decoded_len = 3;
         let mut decoded_bytes = BytesMut::new();
 
-        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes);
+        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes)?;
 
         let expected = b"aab";
         assert_eq!(&decoded_bytes[..], expected);
+
+        Ok(())
     }
 
     #[test]
@@ -499,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn huffman_adaptive_decode() {
+    fn huffman_adaptive_decode() -> Result<(), Box<dyn std::error::Error>> {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
         let encoded_bytes = hex_literal::hex!(
@@ -525,9 +562,11 @@ mod tests {
         let decoded_len = 0x0128;
         let mut decoded_bytes = BytesMut::new();
 
-        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes);
+        huff.decode(&encoded_bytes[..], decoded_len, &mut decoded_bytes)?;
 
         let expected = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
         assert_eq!(&decoded_bytes[..], expected);
+
+        Ok(())
     }
 }

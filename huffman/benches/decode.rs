@@ -36,7 +36,8 @@ pub fn bench_adaptive(c: &mut Criterion) {
                 let mut huff = Huffman::adaptive();
                 let mut decoded_bytes = bytes::BytesMut::new();
 
-                let _ = huff.decode(i.0, i.1, &mut decoded_bytes);
+                huff.decode(i.0, i.1, &mut decoded_bytes)
+                    .expect("test data should be well-formed");
             })
         },
     );
