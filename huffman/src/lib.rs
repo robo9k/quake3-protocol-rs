@@ -109,7 +109,7 @@ pub struct Huffman {
 impl Huffman {
     const ROOT: NodeIndex = NodeIndex(0);
 
-    pub fn adaptive() -> Self {
+    pub const fn adaptive() -> Self {
         const NODE: Option<Node> = None;
         let mut tree = [NODE; MAX_NODES];
 

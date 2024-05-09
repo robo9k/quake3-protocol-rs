@@ -10,7 +10,6 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 - Make more generic (momo), hide dependencies
 - https://www.lurklurk.org/effective-rust/
 - Make `no_std`
-- Use `const` where possible
 - Add rustdoc, `must_use` etc.
 - Build rustdoc for GitHub Pages
 - Add assertions
