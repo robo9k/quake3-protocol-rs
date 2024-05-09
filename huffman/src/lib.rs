@@ -339,7 +339,8 @@ impl Huffman {
         }
     }
 
-    pub fn encode(&mut self, bytes: &[u8]) -> BitVec<u8, Lsb0> {
+    pub fn encode(&mut self, bytes: impl AsRef<[u8]>) -> BitVec<u8, Lsb0> {
+        let bytes = bytes.as_ref();
         //println!("encode {} bytes", bytes.len());
 
         // TODO: reserving average compressed size should increase performance
@@ -472,7 +473,7 @@ mod tests {
 
         let decoded = b"aab";
 
-        let bits = huff.encode(&decoded[..]);
+        let bits = huff.encode(decoded);
 
         let expected = hex_literal::hex!(
             "
@@ -508,7 +509,7 @@ mod tests {
 
         let decoded = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
 
-        let bits = huff.encode(&decoded[..]);
+        let bits = huff.encode(decoded);
 
         let expected = hex_literal::hex!(
             "
