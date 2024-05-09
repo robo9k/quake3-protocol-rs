@@ -13,10 +13,20 @@ harness = false
 name = "decode"
 harness = false
 
+[features]
+default = [
+    "std",
+]
+alloc = []
+std = [
+    "alloc",
+    "dep:thiserror",
+]
+
 [dependencies]
 bitvec = "1.0.1"
 bytes = "1.6.0"
-thiserror = "1.0.60"
+thiserror = {version = "1.0.60", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = ["cargo_bench_support", "rayon"] }
@@ -24,3 +34,8 @@ hex-literal = "0.4.1"
 
 [badges]
 maintenance = { status = "experimental" }
+
+[package.metadata.docs.rs]
+targets = []
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

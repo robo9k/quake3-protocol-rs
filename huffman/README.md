@@ -11,12 +11,11 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 - https://rust-lang.github.io/api-guidelines/
 - Make more generic (momo), hide dependencies
 - https://www.lurklurk.org/effective-rust/
-- Make `no_std`
 - Add rustdoc, `must_use` etc.
 - Build rustdoc for GitHub Pages
 - Add assertions
 - Add benchmarks for encode, decode and adaptive ✔️, fixed ❌
-- GitHub Actions CI
+- GitHub Actions CI for --no-default-features and --all-features at least
 - Publish to crates.io
 
 ```console
@@ -28,4 +27,8 @@ $ $BROWSER flamegraph.svg
 ```console
 $ cargo +nightly fuzz run decode-adaptive
 $ cargo +nightly fuzz run encode-adaptive
+```
+
+```console
+$ RUSTDOCFLAGS='--cfg docsrs -Dwarnings' RUSTFLAGS='--cfg docsrs' cargo +nightly doc --no-deps --all-features
 ```

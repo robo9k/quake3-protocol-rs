@@ -1,4 +1,11 @@
 #![forbid(unsafe_code)]
+#![cfg_attr(not(any(test, feature = "std")), no_std)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg_hide))]
+#![cfg_attr(docsrs, doc(cfg_hide(docsrs)))]
+
+#[cfg(feature = "alloc")]
+extern crate alloc;
 
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
@@ -87,18 +94,20 @@ const MAX_SYMBOLS: usize = u8::MAX as usize + 1;
 
 const MAX_NODES: usize = MAX_SYMBOLS * 2 - 1;
 
-#[derive(thiserror::Error, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-#[error(transparent)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", error(transparent))]
 enum DecodeErrorKind {
-    #[error("no more bits")]
+    #[cfg_attr(feature = "std", error("no more bits"))]
     NoMoreBits,
-    #[error("bits not adressable")]
+    #[cfg_attr(feature = "std", error("bits not adressable"))]
     UnadressableBitsError,
 }
 
-#[derive(thiserror::Error, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-#[error(transparent)]
-pub struct DecodeError(#[from] DecodeErrorKind);
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", error(transparent))]
+pub struct DecodeError(#[cfg_attr(feature = "std", from)] DecodeErrorKind);
 
 #[derive(/*Copy, Clone,*/ Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct Huffman {
@@ -261,15 +270,19 @@ impl Huffman {
         }
     }
 
-    pub fn graphviz(&self) {
-        println!("digraph {{");
+    #[cfg_attr(docsrs, doc(cfg(feature = "alloc")))]
+    #[cfg(feature = "alloc")]
+    pub fn graphviz(&self, mut w: impl core::fmt::Write) -> core::fmt::Result {
+        use alloc::format;
+
+        writeln!(w, "digraph {{")?;
 
         // graph attributes
-        println!("\tordering=out");
+        writeln!(w, "\tordering=out")?;
 
         // node attributes
-        println!("\t{{");
-        self.tree.iter().enumerate().for_each(|(i, n)| {
+        writeln!(w, "\t{{")?;
+        self.tree.iter().enumerate().try_for_each(|(i, n)| {
             if let Some(node) = n.as_ref() {
                 let shape = match node {
                     Node::NotYetTransmitted { .. } => "Mrecord",
@@ -296,24 +309,29 @@ impl Huffman {
                         }
                     }
                 };
-                println!(
+                writeln!(
+                    w,
                     "\t\t{} [shape={},style={},label=\"{}\"]",
                     i, shape, style, label
-                );
+                )?;
             }
-        });
-        println!("\t}}");
+            Ok(())
+        })?;
+        writeln!(w, "\t}}")?;
 
         // nodes
-        self.tree.iter().enumerate().for_each(|(i, n)| {
+        self.tree.iter().enumerate().try_for_each(|(i, n)| {
             if let Some(Node::Internal { left, right, .. }) = n.as_ref() {
-                println!("\t{} -> {}:id [label=0]", i, left.0);
-                println!("\t{} -> {}:id [label=1]", i, right.0);
+                writeln!(w, "\t{} -> {}:id [label=0]", i, left.0)?;
+                writeln!(w, "\t{} -> {}:id [label=1]", i, right.0)?;
             }
-        });
+            Ok(())
+        })?;
 
-        println!("}}");
-        println!();
+        writeln!(w, "}}")?;
+        writeln!(w)?;
+
+        Ok(())
     }
 
     fn emit(&self, node: NodeIndex, bits: &mut BitVec<u8, Lsb0>, child: Option<NodeIndex>) {
@@ -487,7 +505,7 @@ mod tests {
     }
 
     #[test]
-    fn huffman_adaptive_decode_simple() -> Result<(), Box<dyn std::error::Error>> {
+    fn huffman_adaptive_decode_simple() -> Result<(), DecodeError> {
         let mut huff = Huffman::adaptive();
         let encoded_bytes = hex_literal::hex!(
             "
@@ -537,7 +555,7 @@ mod tests {
     }
 
     #[test]
-    fn huffman_adaptive_decode() -> Result<(), Box<dyn std::error::Error>> {
+    fn huffman_adaptive_decode() -> Result<(), DecodeError> {
         let mut huff = Huffman::adaptive();
         // this is from a wireshark dump
         let encoded_bytes = hex_literal::hex!(
@@ -567,6 +585,19 @@ mod tests {
 
         let expected = b"\"\\challenge\\-9938504\\qport\\2033\\protocol\\68\\name\\UnnamedPlayer\\rate\\25000\\snaps\\20\\model\\sarge\\headmodel\\sarge\\team_model\\james\\team_headmodel\\*james\\color1\\4\\color2\\5\\handicap\\100\\sex\\male\\cl_anonymous\\0\\cg_predictItems\\1\\teamtask\\0\\cl_voipProtocol\\opus\\cl_guid\\D17466611282F45B65CE2FD80F83B6B0\"";
         assert_eq!(&decoded_bytes[..], expected);
+
+        Ok(())
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn huffman_adaptive_graphviz() -> core::fmt::Result {
+        let huff = Huffman::adaptive();
+        let mut buf = String::new();
+
+        huff.graphviz(&mut buf)?;
+
+        assert!(!buf.is_empty());
 
         Ok(())
     }
