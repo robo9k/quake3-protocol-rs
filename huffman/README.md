@@ -1,5 +1,7 @@
 # quake3-huffman-rs
 
+[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
+
 Implementation of Huffman coding as implemented in the Quake 3 network protocol, both adaptive and (not yet) fixed.
 
 # TODOs
@@ -14,7 +16,6 @@ Implementation of Huffman coding as implemented in the Quake 3 network protocol,
 - Build rustdoc for GitHub Pages
 - Add assertions
 - Add benchmarks for encode, decode and adaptive ✔️, fixed ❌
-- https://github.com/rust-secure-code/safety-dance
 - GitHub Actions CI
 - Publish to crates.io
 

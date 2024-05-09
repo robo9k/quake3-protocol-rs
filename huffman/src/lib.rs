@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use bitvec::order::Lsb0;
 use bitvec::slice::BitSlice;
 use bitvec::vec::BitVec;
