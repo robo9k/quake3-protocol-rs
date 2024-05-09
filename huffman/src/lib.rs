@@ -304,11 +304,9 @@ impl Huffman {
 
         // nodes
         self.tree.iter().enumerate().for_each(|(i, n)| {
-            if let Some(node) = n.as_ref() {
-                if let Node::Internal { left, right, .. } = node {
-                    println!("\t{} -> {}:id [label=0]", i, left.0);
-                    println!("\t{} -> {}:id [label=1]", i, right.0);
-                }
+            if let Some(Node::Internal { left, right, .. }) = n.as_ref() {
+                println!("\t{} -> {}:id [label=0]", i, left.0);
+                println!("\t{} -> {}:id [label=1]", i, right.0);
             }
         });
 
@@ -402,35 +400,35 @@ impl Huffman {
                     let mut value = 0;
                     let b0 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b0 as u8) << 7;
                     let b1 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b1 as u8) << 6;
                     let b2 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b2 as u8) << 5;
                     let b3 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b3 as u8) << 4;
                     let b4 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b4 as u8) << 3;
                     let b5 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b5 as u8) << 2;
                     let b6 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b6 as u8) << 1;
                     let b7 = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     value |= (b7 as u8) << 0;
 
                     //println!("decode NYT {:#04X}", value);
@@ -451,7 +449,7 @@ impl Huffman {
                 Node::Internal { left, right, .. } => {
                     let bit = bits
                         .next()
-                        .ok_or_else(|| DecodeError(DecodeErrorKind::NoMoreBits))?;
+                        .ok_or(DecodeError(DecodeErrorKind::NoMoreBits))?;
                     node_index = if bit { right } else { left };
                     //println!("decode bit {} → @{}", bit, node_index.0);
                     //println!("---");
