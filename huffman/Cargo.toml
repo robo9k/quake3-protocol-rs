@@ -17,6 +17,9 @@ harness = false
 default = [
     "std",
 ]
+# bytes unconditionally needs alloc, which we use for .decode()
+# we could use BufMut, but that doesn't have .reserve()
+# probably doesn't make sense to have alloc as a feature, without it crate is empty
 alloc = [
     "bitvec/alloc",
 ]
