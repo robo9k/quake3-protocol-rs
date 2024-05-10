@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 publish = false
 
 [dependencies]
+memchr = "2.7.2"
 
 [badges]
 maintenance = { status = "experimental" }
