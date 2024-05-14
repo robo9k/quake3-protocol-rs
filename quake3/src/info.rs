@@ -108,6 +108,40 @@ where
     }
 }
 
+pub struct InfoMap<K, V, const L: usize, S = std::collections::hash_map::RandomState>(
+    indexmap::IndexMap<K, V, S>,
+);
+
+pub struct LimitError(());
+
+impl<K, V, const L: usize> InfoMap<K, V, L> {
+    const LIMIT: usize = L;
+
+    pub fn new() -> Self {
+        Self(indexmap::IndexMap::new())
+    }
+}
+
+impl<K, V, const L: usize, S> InfoMap<K, V, L, S>
+where
+    K: core::hash::Hash + core::cmp::Eq,
+    S: core::hash::BuildHasher,
+{
+    pub fn try_insert(&mut self, key: K, value: V) -> core::result::Result<Option<V>, LimitError> {
+        // TODO: if self.size(key) + size(key) + size(value) < Self::LIMIT..
+        todo!();
+    }
+}
+
+// MAX_INFO_STRING
+pub const INFO_LIMIT: usize = 1024;
+// BIG_INFO_STRING
+pub const INFO_BIG_LIMIT: usize = 8192;
+
+pub type Info = InfoMap<InfoString, InfoString, INFO_LIMIT>;
+
+pub type BigInfo = InfoMap<InfoString, InfoString, INFO_BIG_LIMIT>;
+
 #[cfg(test)]
 mod tests {
     use super::*;
