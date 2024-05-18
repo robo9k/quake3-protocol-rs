@@ -4,6 +4,8 @@
 pub struct QStr([u8]);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", error("NUL at {}", self.0))]
 pub struct FromBytesNulError(/* FIXME: */ pub(crate) usize);
 
 impl QStr {
@@ -32,6 +34,10 @@ impl QStr {
         // SAFETY: const sound because we transmute two types with the same layout
         unsafe { core::intrinsics::transmute(self) }
     }
+
+    pub const fn len(&self) -> usize {
+        self.0.len()
+    }
 }
 
 impl alloc::borrow::ToOwned for QStr {
@@ -55,6 +61,8 @@ impl core::convert::AsRef<[u8]> for QStr {
 pub struct QString(alloc::boxed::Box<[u8]>);
 
 #[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", error("NUL at {}", self.0))]
 pub struct NulError(
     /* FIXME: */ pub(crate) usize,
     /* FIXME: */ pub(crate) alloc::vec::Vec<u8>,

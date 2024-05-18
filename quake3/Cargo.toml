@@ -5,9 +5,18 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 publish = false
 
+[features]
+default = [
+    "std",
+]
+std = [
+    "dep:thiserror",
+]
+
 [dependencies]
 indexmap = "2.2.6"
 memchr = "2.7.2"
+thiserror = { version = "1.0.61", optional = true }
 
 [badges]
 maintenance = { status = "experimental" }
