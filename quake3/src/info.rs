@@ -114,18 +114,18 @@ where
     }
 }
 
-trait InfoSize {
+pub trait InfoKv: private::Sealed {
     // BACKSLASH + bytes
     fn encoded_size(&self) -> usize;
 }
 
-impl InfoSize for InfoStr {
+impl InfoKv for InfoStr {
     fn encoded_size(&self) -> usize {
         1 + self.0.len()
     }
 }
 
-impl InfoSize for InfoString {
+impl InfoKv for InfoString {
     fn encoded_size(&self) -> usize {
         1 + self.0.len()
     }
@@ -155,8 +155,8 @@ impl<K, V, const L: usize, S> InfoMap<K, V, L, S>
 where
     K: core::hash::Hash + core::cmp::Eq,
     S: core::hash::BuildHasher,
-    K: InfoSize,
-    V: InfoSize,
+    K: InfoKv,
+    V: InfoKv,
 {
     fn encoded_size(&self, ignore: &K) -> usize {
         self.0
@@ -198,6 +198,13 @@ pub const INFO_BIG_LIMIT: usize = 8192;
 pub type Info = InfoMap<InfoString, InfoString, INFO_LIMIT>;
 
 pub type BigInfo = InfoMap<InfoString, InfoString, INFO_BIG_LIMIT>;
+
+mod private {
+    pub trait Sealed {}
+
+    impl Sealed for super::InfoStr {}
+    impl Sealed for super::InfoString {}
+}
 
 #[cfg(test)]
 mod tests {
