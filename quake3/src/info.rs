@@ -1,5 +1,6 @@
 use crate::qstr::{QStr, QString};
 
+// TODO: ioQ3 also disallows ; (semicolon) and " (double quote), but at least for info de/ser they are not an issue
 const BACKSLASH: u8 = b'\\';
 
 #[repr(transparent)]
@@ -20,6 +21,7 @@ impl InfoStr {
         unsafe { &*(QStr::from_bytes_unchecked(bytes) as *const QStr as *const Self) }
     }
 
+    // TODO: const, see https://github.com/BurntSushi/memchr/issues/104
     pub fn from_bytes<B: core::convert::AsRef<[u8]> + ?Sized>(
         bytes: &B,
     ) -> core::result::Result<&Self, FromBytesError> {
@@ -142,6 +144,7 @@ pub struct InfoMap<K, V, const L: usize, S = std::collections::hash_map::RandomS
 pub struct LimitError<K, V>(K, V);
 
 impl<K, V, const L: usize, S> InfoMap<K, V, L, S> {
+    // TODO: Q3 has separate defines for key / value lengths, but they are the same as for the whole info string
     pub const LIMIT: usize = L;
 }
 
@@ -185,6 +188,7 @@ where
     // TODO: pub fn iter(&self) -> Iter<'_, K, V>
 
     // TODO: test that insertion and removal work like in Q3
+    // TODO: are empty InfoKv valid?
 
     // TODO: read from bytes aka parse
     // TODO: write as bytes
