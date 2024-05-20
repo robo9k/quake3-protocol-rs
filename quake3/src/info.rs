@@ -121,7 +121,7 @@ pub trait InfoKv: private::Sealed {
     fn encoded_size(&self) -> usize;
 }
 
-impl InfoKv for InfoStr {
+impl InfoKv for &InfoStr {
     fn encoded_size(&self) -> usize {
         1 + self.0.len()
     }
@@ -146,11 +146,25 @@ pub struct LimitError<K, V>(K, V);
 impl<K, V, const L: usize, S> InfoMap<K, V, L, S> {
     // TODO: Q3 has separate defines for key / value lengths, but they are the same as for the whole info string
     pub const LIMIT: usize = L;
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn iter(&self) -> impl core::iter::Iterator<Item = (&K, &V)> {
+        self.0.iter()
+    }
 }
 
 impl<K, V, const L: usize> InfoMap<K, V, L> {
+    #[inline]
     pub fn new() -> Self {
-        Self(indexmap::IndexMap::new())
+        Self(indexmap::IndexMap::with_capacity(0))
+    }
+
+    #[inline]
+    pub fn with_capacity(n: usize) -> Self {
+        Self(indexmap::IndexMap::with_capacity(n))
     }
 }
 
@@ -194,6 +208,28 @@ where
     // TODO: write as bytes
 }
 
+impl<K: ?Sized, V: ?Sized, const L: usize> InfoMap<&K, &V, L>
+where
+    K: alloc::borrow::ToOwned,
+    V: alloc::borrow::ToOwned,
+    K::Owned: core::hash::Hash + core::cmp::Eq,
+    K::Owned: InfoKv + core::fmt::Debug,
+    V::Owned: InfoKv + core::fmt::Debug,
+{
+    // poor man's `borrowme` impl
+    pub fn to_owned(&self) -> InfoMap<K::Owned, V::Owned, L> {
+        let mut out = <InfoMap<_, _, L>>::with_capacity(self.len());
+
+        for (&key, &value) in self.iter() {
+            let k = key.to_owned();
+            let v = value.to_owned();
+            out.try_insert(k, v).unwrap();
+        }
+
+        out
+    }
+}
+
 // MAX_INFO_STRING
 pub const INFO_LIMIT: usize = 1024;
 // BIG_INFO_STRING
@@ -207,7 +243,9 @@ mod private {
     pub trait Sealed {}
 
     impl Sealed for super::InfoStr {}
+    impl Sealed for &super::InfoStr {}
     impl Sealed for super::InfoString {}
+    impl Sealed for &super::InfoString {}
 }
 
 #[cfg(test)]
@@ -271,6 +309,21 @@ mod tests {
                 InfoString::from_bytes(b"vD")?
             ))
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn infomap_toowned() -> Result<(), Box<dyn std::error::Error>> {
+        let mut borrowed: InfoMap<&InfoStr, &InfoStr, 42> = InfoMap::new();
+
+        borrowed.try_insert(InfoStr::from_bytes(b"k0")?, InfoStr::from_bytes(b"vA")?)?;
+        borrowed.try_insert(InfoStr::from_bytes(b"k1")?, InfoStr::from_bytes(b"vB")?)?;
+        borrowed.try_insert(InfoStr::from_bytes(b"k2")?, InfoStr::from_bytes(b"vC")?)?;
+
+        let owned: InfoMap<InfoString, InfoString, 42> = borrowed.to_owned();
+        // TODO: assert owned contains owned instances of borrowed once API permits
+        assert_eq!(borrowed.len(), owned.len());
 
         Ok(())
     }
