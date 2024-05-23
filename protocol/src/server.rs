@@ -3,8 +3,8 @@ use super::{
     InvalidConnectionlessMessageError, InvalidFragmentLengthError, InvalidFragmentStartError,
     InvalidQPortError, PacketKind, PacketSequenceNumber, QPort,
 };
+use crate::net::chan::FRAGMENT_SIZE;
 use bytes::{Buf, Bytes};
-use quake3::net::chan::FRAGMENT_SIZE;
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]

@@ -1,8 +1,9 @@
+use crate::net::chan::{FRAGMENT_BIT, FRAGMENT_SIZE, MAX_PACKETLEN};
 use bytes::Bytes;
-use quake3::net::chan::{FRAGMENT_BIT, FRAGMENT_SIZE, MAX_PACKETLEN};
 use std::ffi::{c_int, c_ushort};
 
 pub mod client;
+pub mod net;
 pub mod server;
 
 const CONNECTIONLESS_SEQUENCE: c_int = 0xFF_FF_FF_FFu32 as i32;
