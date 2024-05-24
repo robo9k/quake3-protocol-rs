@@ -17,6 +17,7 @@ std = [
 indexmap = "2.2.6"
 memchr = "2.7.2"
 thiserror = { version = "1.0.61", optional = true }
+winnow = "0.6.8"
 
 [badges]
 maintenance = { status = "experimental" }

@@ -1,4 +1,13 @@
 use crate::qstr::{QStr, QString};
+use winnow::combinator::preceded;
+use winnow::combinator::repeat;
+use winnow::error::ContextError;
+use winnow::error::ErrMode;
+use winnow::error::ErrorKind;
+use winnow::error::ParserError;
+use winnow::token::take_while;
+use winnow::PResult;
+use winnow::Parser;
 
 // TODO: ioQ3 also disallows ; (semicolon) and " (double quote), but at least for info de/ser they are not an issue
 const BACKSLASH: u8 = b'\\';
@@ -143,6 +152,11 @@ pub struct InfoMap<K, V, const L: usize, S = std::collections::hash_map::RandomS
 #[cfg_attr(feature = "std", error("limit"))]
 pub struct LimitError<K, V>(K, V);
 
+#[derive(Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "std", derive(thiserror::Error))]
+#[cfg_attr(feature = "std", error("can not be parsed"))]
+pub struct ParseError(());
+
 impl<K, V, const L: usize, S> InfoMap<K, V, L, S> {
     // TODO: Q3 has separate defines for key / value lengths, but they are the same as for the whole info string
     pub const LIMIT: usize = L;
@@ -153,6 +167,68 @@ impl<K, V, const L: usize, S> InfoMap<K, V, L, S> {
 
     pub fn iter(&self) -> impl core::iter::Iterator<Item = (&K, &V)> {
         self.0.iter()
+    }
+}
+
+fn parse_infostr<'s>(input: &mut &'s [u8]) -> PResult<&'s InfoStr> {
+    preceded(BACKSLASH, take_while(1.., |b| b != BACKSLASH))
+        .try_map(InfoStr::from_bytes)
+        .parse_next(input)
+}
+
+fn parse_infostr_map<'s, const L: usize>(
+) -> impl Parser<&'s [u8], InfoMap<&'s InfoStr, &'s InfoStr, L>, ContextError> {
+    move |input: &mut &'s [u8]| {
+        let entries: alloc::vec::Vec<(_, _)> =
+            repeat(0.., (parse_infostr, parse_infostr)).parse_next(input)?;
+        let mut info = InfoMap::with_capacity(entries.len());
+        for (k, v) in entries {
+            info.try_insert(k, v)
+                .map_err(|_e| ErrMode::from_error_kind(input, ErrorKind::Verify))?;
+        }
+        Ok(info)
+    }
+}
+
+impl<const L: usize> InfoMap<&InfoStr, &InfoStr, L> {
+    pub fn parse<B: core::convert::AsRef<[u8]> + ?Sized>(
+        bytes: &B,
+    ) -> core::result::Result<InfoMap<&InfoStr, &InfoStr, L>, ParseError> {
+        parse_infostr_map::<L>()
+            .parse(bytes.as_ref())
+            .map_err(|_e| ParseError(()))
+    }
+}
+
+// TODO: move into InfoKv instead of whole duplication?
+
+fn parse_infostring(input: &mut &[u8]) -> PResult<InfoString> {
+    preceded(BACKSLASH, take_while(1.., |b| b != BACKSLASH))
+        .try_map(InfoString::from_bytes)
+        .parse_next(input)
+}
+
+fn parse_infostring_map<'s, const L: usize>(
+) -> impl Parser<&'s [u8], InfoMap<InfoString, InfoString, L>, ContextError> {
+    move |input: &mut &'s [u8]| {
+        let entries: alloc::vec::Vec<(_, _)> =
+            repeat(0.., (parse_infostring, parse_infostring)).parse_next(input)?;
+        let mut info = InfoMap::with_capacity(entries.len());
+        for (k, v) in entries {
+            info.try_insert(k, v)
+                .map_err(|_e| ErrMode::from_error_kind(input, ErrorKind::Verify))?;
+        }
+        Ok(info)
+    }
+}
+
+impl<const L: usize> InfoMap<InfoString, InfoString, L> {
+    pub fn parse<B: core::convert::AsRef<[u8]> + ?Sized>(
+        bytes: &B,
+    ) -> core::result::Result<InfoMap<InfoString, InfoString, L>, ParseError> {
+        parse_infostring_map::<L>()
+            .parse(bytes.as_ref())
+            .map_err(|_e| ParseError(()))
     }
 }
 
@@ -324,6 +400,52 @@ mod tests {
         let owned: InfoMap<InfoString, InfoString, 42> = borrowed.to_owned();
         // TODO: assert owned contains owned instances of borrowed once API permits
         assert_eq!(borrowed.len(), owned.len());
+
+        Ok(())
+    }
+
+    #[test]
+    fn infomap_parse_infostr() -> Result<(), Box<dyn std::error::Error>> {
+        let parsed = InfoMap::<&InfoStr, &InfoStr, INFO_LIMIT>::parse(b"")?;
+        assert_eq!(0, parsed.len());
+
+        let mut info: InfoMap<&InfoStr, &InfoStr, INFO_LIMIT> = InfoMap::new();
+
+        info.try_insert(InfoStr::from_bytes(b"k0")?, InfoStr::from_bytes(b"vA")?)?;
+        info.try_insert(InfoStr::from_bytes(b"k1")?, InfoStr::from_bytes(b"vB")?)?;
+        info.try_insert(InfoStr::from_bytes(b"k2")?, InfoStr::from_bytes(b"vC")?)?;
+
+        let parsed = InfoMap::<&InfoStr, &InfoStr, INFO_LIMIT>::parse(b"\\k0\\vA\\k1\\vB\\k2\\vC")?;
+        assert_eq!(info.len(), parsed.len());
+        // TODO: assert_eq!
+
+        Ok(())
+    }
+
+    #[test]
+    fn infomap_parse_infostring() -> Result<(), Box<dyn std::error::Error>> {
+        let parsed = InfoMap::<InfoString, InfoString, INFO_LIMIT>::parse(b"")?;
+        assert_eq!(0, parsed.len());
+
+        let mut info: InfoMap<InfoString, InfoString, INFO_LIMIT> = InfoMap::new();
+
+        info.try_insert(
+            InfoString::from_bytes(b"k0")?,
+            InfoString::from_bytes(b"vA")?,
+        )?;
+        info.try_insert(
+            InfoString::from_bytes(b"k1")?,
+            InfoString::from_bytes(b"vB")?,
+        )?;
+        info.try_insert(
+            InfoString::from_bytes(b"k2")?,
+            InfoString::from_bytes(b"vC")?,
+        )?;
+
+        let parsed =
+            InfoMap::<InfoString, InfoString, INFO_LIMIT>::parse(b"\\k0\\vA\\k1\\vB\\k2\\vC")?;
+        assert_eq!(info.len(), parsed.len());
+        // TODO: assert_eq!
 
         Ok(())
     }
