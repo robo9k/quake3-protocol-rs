@@ -5,6 +5,13 @@ use super::{
 };
 use crate::net::chan::FRAGMENT_SIZE;
 use bytes::{Buf, Bytes};
+use quake3::info::InfoMap;
+use quake3::info::InfoString;
+use quake3::info::INFO_LIMIT;
+use winnow::error::ContextError;
+use winnow::token::literal;
+use winnow::PResult;
+use winnow::Parser;
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
@@ -152,6 +159,44 @@ pub fn parse_client_packet(
     };
 
     Ok(message)
+}
+
+//#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+pub struct ConnectMessage<KV> {
+    user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
+}
+
+pub struct ParseConnectMessageError(());
+
+fn recognize_connect_payload<'s>() -> impl Parser<&'s [u8], &'s [u8], ContextError> {
+    literal(b"connect")
+}
+
+fn parse_connect_payload(input: &mut &[u8]) -> PResult<ConnectMessage<InfoString>> {
+    // skip b" " (space) ?
+    // quake3_huffman::Huffman::{adaptive, decode}
+    // InfoMap::parse()
+    // ConnectMessage::new()
+    todo!()
+}
+
+impl<KV> ConnectMessage<KV> {
+    pub fn new(user_info: InfoMap<KV, KV, { INFO_LIMIT }>) -> Self {
+        Self { user_info }
+    }
+
+    pub fn user_info(&self) -> &InfoMap<KV, KV, { INFO_LIMIT }> {
+        &self.user_info
+    }
+
+    pub fn parse(
+        message: &ConnectionlessMessage,
+    ) -> Result<ConnectMessage<InfoString>, ParseConnectMessageError> {
+        // message.payload()
+        // recognize_connect_payload()
+        // parse_connect_payload()
+        todo!()
+    }
 }
 
 #[cfg(test)]
