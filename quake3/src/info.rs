@@ -16,6 +16,10 @@ const BACKSLASH: u8 = b'\\';
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct InfoStr(QStr);
 
+// in QStr and delegate? ↓
+// TODO: pub fn to_string_lossy(&self) -> Cow<'_, str>
+// TODO: pub const fn to_str(&self) -> Result<&str, Utf8Error>
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(feature = "std", error("NUL at {}", self.0))]
