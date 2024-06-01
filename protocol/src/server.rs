@@ -173,7 +173,18 @@ fn recognize_connect_payload<'s>() -> impl Parser<&'s [u8], &'s [u8], ContextErr
 }
 
 fn parse_connect_payload(input: &mut &[u8]) -> PResult<ConnectMessage<InfoString>> {
-    // skip b" " (space) ?
+    // 0. "connect" in recognize_connect_payload()
+    // 1. " " (space)
+    // 2. u16 decoded huffman len, huffman blob
+    // 3. decoded blob: \" .. user_info .. \"
+
+    // Q3 peeks the "connect", then overwrites the original msg buffer with the huffman decoded part
+    // i.e. it ends up with a complete string buffer of: connect "<user_info>"
+    // could be emulated with https://docs.rs/bytes/latest/bytes/buf/struct.Chain.html but likely not needed
+
+    // MSG_ReadStringLine(), Cmd_TokenizeString() probably overkill for MVP
+    // see https://github.com/robo9k/quake3-file-parsers/blob/main/src/lexer.rs
+
     // quake3_huffman::Huffman::{adaptive, decode}
     // InfoMap::parse()
     // ConnectMessage::new()
