@@ -4,12 +4,18 @@ use super::{
     InvalidQPortError, PacketKind, PacketSequenceNumber, QPort,
 };
 use crate::net::chan::FRAGMENT_SIZE;
+use bytes::BytesMut;
 use bytes::{Buf, Bytes};
 use quake3::info::InfoMap;
 use quake3::info::InfoString;
 use quake3::info::INFO_LIMIT;
+use winnow::binary::le_u16;
+use winnow::combinator::delimited;
+use winnow::combinator::rest;
+use winnow::combinator::seq;
 use winnow::error::ContextError;
 use winnow::token::literal;
+use winnow::token::take_until;
 use winnow::PResult;
 use winnow::Parser;
 
@@ -166,6 +172,8 @@ pub struct ConnectMessage<KV> {
     user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
 }
 
+#[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[error("could not parse")]
 pub struct ParseConnectMessageError(());
 
 fn recognize_connect_payload<'s>() -> impl Parser<&'s [u8], &'s [u8], ContextError> {
@@ -185,10 +193,25 @@ fn parse_connect_payload(input: &mut &[u8]) -> PResult<ConnectMessage<InfoString
     // MSG_ReadStringLine(), Cmd_TokenizeString() probably overkill for MVP
     // see https://github.com/robo9k/quake3-file-parsers/blob/main/src/lexer.rs
 
-    // quake3_huffman::Huffman::{adaptive, decode}
-    // InfoMap::parse()
-    // ConnectMessage::new()
-    todo!()
+    let (len, bytes) = seq!(
+        _: literal(b" "),
+        le_u16,
+        rest,
+    )
+    .parse_next(input)?;
+
+    let mut huff = quake3_huffman::Huffman::adaptive();
+    let mut decoded = BytesMut::new();
+
+    huff.decode(&bytes[..], len.into(), &mut decoded).unwrap();
+
+    let user_info =
+        delimited(b"\"", take_until(1.., b'\"'), b"\"").parse_next(&mut &decoded[..])?;
+
+    let user_info = InfoMap::<InfoString, InfoString, INFO_LIMIT>::parse(user_info).unwrap();
+
+    let connect_message = ConnectMessage::new(user_info);
+    Ok(connect_message)
 }
 
 impl<KV> ConnectMessage<KV> {
@@ -203,10 +226,12 @@ impl<KV> ConnectMessage<KV> {
     pub fn parse(
         message: &ConnectionlessMessage,
     ) -> Result<ConnectMessage<InfoString>, ParseConnectMessageError> {
-        // message.payload()
-        // recognize_connect_payload()
-        // parse_connect_payload()
-        todo!()
+        let payload = message.payload();
+        let mut payload = &payload.as_ref();
+        let (connect_message,) = seq!(_: recognize_connect_payload(), parse_connect_payload)
+            .parse(payload)
+            .map_err(|_e| ParseConnectMessageError(()))?;
+        Ok(connect_message)
     }
 }
 
@@ -296,6 +321,40 @@ mod tests {
             }
             _ => panic!(),
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn connectmessage_parse() -> Result<(), Box<dyn std::error::Error>> {
+        const encoded_bytes: [u8; 239] = hex_literal::hex!(
+            "
+            63 6F 6E 6E 65 63 74 20
+            28 01
+            44 74 30 8e 05 0c c7 26 
+            c3 14 ec 8e f9 67 d0 1a 4e 29 98 01 c7 c3 7a 30 
+            2c 2c 19 1c 13 87 c2 de 71 0a 5c ac 30 cd 40 ce 
+            3a ca af 96 2a b0 d9 3a b7 b0 fd 4d a8 0e c9 ba 
+            79 4c 28 0a c4 0a 4f 83 02 9b 9f 69 e4 0a c3 38 
+            47 9b cf 22 af 61 f6 64 6f 13 7c a3 ae 1f af 06 
+            52 b7 3c a3 06 5f 3a f4 8f 66 d2 40 ac ee 2b 2d 
+            ea 38 18 f9 b7 f2 36 37 80 ea 17 e9 d5 40 58 f7 
+            0f c6 b2 3a 85 e5 bb ca f7 78 77 09 2c e1 e5 7b 
+            cc ad 59 0f 3c ea 67 2a 37 1a 31 c7 83 e5 02 d7 
+            d1 dd c0 73 eb e6 5d 4c 32 87 a4 a4 8d 2e 1b 08 
+            0b 38 11 ac 7b 9a 34 16 e2 e6 d1 3b f0 f8 f2 99 
+            da c4 91 b7 4b 53 cf 82 a6 da 10 61 89 b0 5b 6c 
+            6e c3 46 e3 b7 7c 19 62 38 ac 42 48 23 ab 11 e6 
+            20 0a b8 75 91 26 12 6e 92 25 65 c9 00       
+        "
+        );
+
+        let message = ConnectionlessMessage::new(&encoded_bytes[..])?;
+        let connect_message = ConnectMessage::<InfoString>::parse(&message)?;
+
+        let user_info = connect_message.user_info();
+
+        assert!(user_info.len() == 19);
 
         Ok(())
     }
