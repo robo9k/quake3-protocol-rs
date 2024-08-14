@@ -167,6 +167,39 @@ pub fn parse_client_packet(
     Ok(message)
 }
 
+pub enum ConnectionlessCommand {
+    GetStatus,
+    GetInfo,
+    GetChallenge,
+    Connect,
+    IpAuthorize,
+}
+
+pub const GETSTATUS_COMMAND: &[u8] = b"getstatus";
+pub const GETINFO_COMMAND: &[u8] = b"getinfo";
+pub const GETCHALLENGE_COMMAND: &[u8] = b"getchallenge";
+pub const CONNECT_COMMAND: &[u8] = b"connect";
+pub const IPAUTHORIZE_COMMAND: &[u8] = b"ipAuthorize";
+
+#[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
+#[error("is invalid")]
+pub struct ParseCommandError(());
+
+impl ConnectionlessCommand {
+    pub fn parse(bytes: &[u8]) -> Result<Self, ParseCommandError> {
+        // this is case insensitive in SV_ConnectionlessPacket
+        match bytes {
+            GETSTATUS_COMMAND => Ok(Self::GetStatus),
+            GETINFO_COMMAND => Ok(Self::GetInfo),
+            GETCHALLENGE_COMMAND => Ok(Self::GetChallenge),
+            CONNECT_COMMAND => Ok(Self::Connect),
+            IPAUTHORIZE_COMMAND => Ok(Self::IpAuthorize),
+
+            _ => Err(ParseCommandError(())),
+        }
+    }
+}
+
 //#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ConnectMessage<KV> {
     user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
@@ -177,7 +210,7 @@ pub struct ConnectMessage<KV> {
 pub struct ParseConnectMessageError(());
 
 fn recognize_connect_payload<'s>() -> impl Parser<&'s [u8], &'s [u8], ContextError> {
-    literal(b"connect")
+    literal(CONNECT_COMMAND)
 }
 
 fn parse_connect_payload(input: &mut &[u8]) -> PResult<ConnectMessage<InfoString>> {
@@ -223,7 +256,7 @@ impl<KV> ConnectMessage<KV> {
         &self.user_info
     }
 
-    pub fn parse(
+    pub fn parse_message(
         message: &ConnectionlessMessage,
     ) -> Result<ConnectMessage<InfoString>, ParseConnectMessageError> {
         let payload = message.payload();
@@ -233,6 +266,15 @@ impl<KV> ConnectMessage<KV> {
             .map_err(|_e| ParseConnectMessageError(()))?;
         Ok(connect_message)
     }
+}
+
+// FIXME: this name is confusing, maybe have outer Packet vs. inner Message in all the modules?
+pub enum ConnectionlessClientMessage {
+    GetStatus(()),
+    GetInfo(()),
+    GetChallenge(()),
+    Connect(ConnectMessage<InfoString>), // that <KV> generic is annoying here, maybe less so if this were OwnedConnectionlessClientMessage ?
+    IpAuthorize(()),
 }
 
 #[cfg(test)]
@@ -326,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn connectmessage_parse() -> Result<(), Box<dyn std::error::Error>> {
+    fn connectmessage_parse_message() -> Result<(), Box<dyn std::error::Error>> {
         const encoded_bytes: [u8; 239] = hex_literal::hex!(
             "
             63 6F 6E 6E 65 63 74 20
@@ -350,7 +392,7 @@ mod tests {
         );
 
         let message = ConnectionlessMessage::new(&encoded_bytes[..])?;
-        let connect_message = ConnectMessage::<InfoString>::parse(&message)?;
+        let connect_message = ConnectMessage::<InfoString>::parse_message(&message)?;
 
         let user_info = connect_message.user_info();
 
