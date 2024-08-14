@@ -4,14 +4,14 @@
 //! Public game servers list themselves on master servers.
 //! Some game servers check their game clients using the auth server.
 //!
-//! Packets from game clients are either connectionless, sequenced or fragmented in [`ClientPacket`]:
+//! Packets from game clients are either connectionless, sequenced or fragmented in [`Packet`]:
 //! - [`ConnectionlessPacket`]
 //! - [`SequencedPacket`]
 //! - [`FragmentedPacket`]
 //!
 //! Packets from master servers and auth server are always connectionless.
 //!
-//! A connectionless outer packet contains an inner message of [`ConnectionlessClientMessage`]:
+//! A connectionless outer packet contains an inner message of [`ConnectionlessMessage`]:
 //! - TODO: `GetStatusMessage`
 //! - TODO: `GetInfoMessage`
 //! - TODO: `GetChallengeMessage`
@@ -131,18 +131,18 @@ impl FragmentedPacket {
     }
 }
 
-// FIXME: this is also kinda used for connectionless master and auth server packets
+/// Incoming packet
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum ClientPacket {
+pub enum Packet {
     Connectionless(ConnectionlessPacket),
     Sequenced(crate::client::SequencedPacket),
     Fragmented(crate::client::FragmentedPacket),
 }
 
-/// Parse error for [`ClientPacket`]
+/// Parse error for [`Packet`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub enum InvalidClientPacketError {
+pub enum InvalidPacketError {
     InvalidConnectionlessPacket(#[from] InvalidConnectionlessPacketError),
     InvalidSequencedPacket(#[from] crate::client::InvalidSequencedPacketError),
     InvalidQPort(#[from] InvalidQPortError),
@@ -151,10 +151,8 @@ pub enum InvalidClientPacketError {
     InvalidFragmentedPacket(#[from] crate::client::InvalidFragmentedPacketError),
 }
 
-// FIXME: this is also used for master and auth server packets
-pub fn parse_client_packet(
-    mut payload: impl Buf,
-) -> Result<ClientPacket, InvalidClientPacketError> {
+/// Parse incoming packet
+pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError> {
     // FIXME: this panics if payload doesn't have a next i32, unlike e.g. nom::Err::Incomplete
     let packet_kind = PacketKind::parse(payload.get_i32_le());
 
@@ -162,7 +160,7 @@ pub fn parse_client_packet(
         PacketKind::Connectionless => {
             let payload = payload.copy_to_bytes(payload.remaining());
             let packet = ConnectionlessPacket::new(payload)?;
-            ClientPacket::Connectionless(packet)
+            Packet::Connectionless(packet)
         }
         PacketKind::Sequenced(sequence) => {
             // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
@@ -183,12 +181,12 @@ pub fn parse_client_packet(
                     fragment_info.start(),
                     payload,
                 )?;
-                ClientPacket::Fragmented(packet)
+                Packet::Fragmented(packet)
             } else {
                 let payload = payload.copy_to_bytes(payload.remaining());
                 let packet =
                     crate::client::SequencedPacket::new(sequence.number(), qport, payload)?;
-                ClientPacket::Sequenced(packet)
+                Packet::Sequenced(packet)
             }
         }
     };
@@ -196,7 +194,7 @@ pub fn parse_client_packet(
     Ok(packet)
 }
 
-/// Kind of [`ConnectionlessClientMessage`]
+/// Kind of [`ConnectionlessMessage`]
 pub enum ConnectionlessCommand {
     GetStatus,
     GetInfo,
@@ -306,12 +304,12 @@ impl<KV> ConnectMessage<KV> {
     }
 }
 
-/// Kind of connectionless [`ClientPacket`]
-pub enum ConnectionlessClientMessage {
+/// Connectionless [`Packet`]
+pub enum ConnectionlessMessage {
     GetStatus(()),
     GetInfo(()),
     GetChallenge(()),
-    Connect(ConnectMessage<InfoString>), // that <KV> generic is annoying here, maybe less so if this were OwnedConnectionlessClientMessage ?
+    Connect(ConnectMessage<InfoString>), // that <KV> generic is annoying here, maybe less so if this were OwnedConnectionlessMessage ?
     IpAuthorize(()),
 }
 
@@ -353,12 +351,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_client_packet_connectionless() -> Result<(), Box<dyn std::error::Error>> {
+    fn parse_packet_connectionless() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\xFF\xFF\xFF\xFF\xDE\xAD\xBE\xEF"[..];
 
-        let packet = parse_client_packet(&mut payload)?;
+        let packet = parse_packet(&mut payload)?;
         match packet {
-            ClientPacket::Connectionless(packet) => {
+            Packet::Connectionless(packet) => {
                 assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
@@ -368,12 +366,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_client_packet_sequenced() -> Result<(), Box<dyn std::error::Error>> {
+    fn parse_packet_sequenced() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x00\x9A\x02\xDE\xAD\xBE\xEF"[..];
 
-        let packet = parse_client_packet(&mut payload)?;
+        let packet = parse_packet(&mut payload)?;
         match packet {
-            ClientPacket::Sequenced(packet) => {
+            Packet::Sequenced(packet) => {
                 assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
                 assert_eq!(packet.qport(), QPort::new(666)?);
                 assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
@@ -385,12 +383,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_client_packet_fragmented() -> Result<(), Box<dyn std::error::Error>> {
+    fn parse_packet_fragmented() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x80\x9A\x02\x01\x00\x04\x00\xDE\xAD\xBE\xEF"[..];
 
-        let packet = parse_client_packet(&mut payload)?;
+        let packet = parse_packet(&mut payload)?;
         match packet {
-            ClientPacket::Fragmented(packet) => {
+            Packet::Fragmented(packet) => {
                 assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
                 assert_eq!(packet.qport(), QPort::new(666)?);
                 assert_eq!(
