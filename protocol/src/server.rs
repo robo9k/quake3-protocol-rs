@@ -1,7 +1,29 @@
+//! Packets and messages for game server
+//!
+//! A game server (or just server), is where game clients (or just clients) connect to.
+//! Public game servers list themselves on master servers.
+//! Some game servers check their clients using the auth server.
+//!
+//! Packets from client to server are either connectionless, sequenced or fragmented in [`ClientMessage`]:
+//! - [`ConnectionlessMessage`]
+//! - [`SequencedMessage`]
+//! - [`FragmentedMessage`]
+//!
+//! Packets from master and auth server are always connectionless.
+//!
+//! A connectionless outer packet contains an inner message of [`ConnectionlessClientMessage`]:
+//! - TODO: `GetStatusMessage`
+//! - TODO: `GetInfoMessage`
+//! - TODO: `GetChallengeMessage`
+//! - [`ConnectMessage`]
+//! - TODO:  `IpAuthorizeMessage`
+
+pub use super::ConnectionlessMessage;
+
 use super::{
-    ConnectionlessMessage, FragmentInfo, FragmentLength, FragmentStart,
-    InvalidConnectionlessMessageError, InvalidFragmentLengthError, InvalidFragmentStartError,
-    InvalidQPortError, PacketKind, PacketSequenceNumber, QPort,
+    FragmentInfo, FragmentLength, FragmentStart, InvalidConnectionlessMessageError,
+    InvalidFragmentLengthError, InvalidFragmentStartError, InvalidQPortError, PacketKind,
+    PacketSequenceNumber, QPort,
 };
 use crate::net::chan::FRAGMENT_SIZE;
 use bytes::BytesMut;
@@ -19,12 +41,14 @@ use winnow::token::take_until;
 use winnow::PResult;
 use winnow::Parser;
 
+/// Error for invalid [`SequencedMessage`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct InvalidSequencedMessageError {
     payload: Bytes,
 }
 
+/// Sequenced client message
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct SequencedMessage {
     sequence: PacketSequenceNumber,
@@ -55,12 +79,14 @@ impl SequencedMessage {
     }
 }
 
+/// Error for invalid [`FragmentedMessage`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct InvalidFragmentedMessageError {
     payload: Bytes,
 }
 
+/// Fragmented client message
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct FragmentedMessage {
     sequence: PacketSequenceNumber,
@@ -105,6 +131,7 @@ impl FragmentedMessage {
     }
 }
 
+// FIXME: this is also kinda used for connectionless master and auth server packets
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub enum ClientMessage {
     Connectionless(ConnectionlessMessage),
@@ -112,6 +139,7 @@ pub enum ClientMessage {
     Fragmented(crate::client::FragmentedMessage),
 }
 
+/// Parse error for [`ClientMessage`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub enum InvalidClientMessageError {
@@ -123,6 +151,7 @@ pub enum InvalidClientMessageError {
     InvalidFragmentedMessage(#[from] crate::client::InvalidFragmentedMessageError),
 }
 
+// FIXME: this is also used for master and auth server packets
 pub fn parse_client_packet(
     mut payload: impl Buf,
 ) -> Result<ClientMessage, InvalidClientMessageError> {
@@ -167,6 +196,7 @@ pub fn parse_client_packet(
     Ok(message)
 }
 
+/// Kind of [`ConnectionlessClientMessage`]
 pub enum ConnectionlessCommand {
     GetStatus,
     GetInfo,
@@ -175,12 +205,18 @@ pub enum ConnectionlessCommand {
     IpAuthorize,
 }
 
+/// `getstatus` [`ConnectionlessCommand`]
 pub const GETSTATUS_COMMAND: &[u8] = b"getstatus";
+/// `getinfo` [`ConnectionlessCommand`]
 pub const GETINFO_COMMAND: &[u8] = b"getinfo";
+/// `getchallenge` [`ConnectionlessCommand`]
 pub const GETCHALLENGE_COMMAND: &[u8] = b"getchallenge";
+/// `connect` [`ConnectionlessCommand`]
 pub const CONNECT_COMMAND: &[u8] = b"connect";
+/// `ipAuthorize` [`ConnectionlessCommand`]
 pub const IPAUTHORIZE_COMMAND: &[u8] = b"ipAuthorize";
 
+/// Parse error for [`ConnectionlessCommand`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub struct ParseCommandError(());
@@ -200,11 +236,13 @@ impl ConnectionlessCommand {
     }
 }
 
+/// Connectionless `connect` client message
 //#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ConnectMessage<KV> {
     user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
 }
 
+/// Parse error for [`ConnectMessage`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("could not parse")]
 pub struct ParseConnectMessageError(());
@@ -269,6 +307,7 @@ impl<KV> ConnectMessage<KV> {
 }
 
 // FIXME: this name is confusing, maybe have outer Packet vs. inner Message in all the modules?
+/// Kind of connectionless [`ClientMessage`]
 pub enum ConnectionlessClientMessage {
     GetStatus(()),
     GetInfo(()),
