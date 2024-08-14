@@ -4,12 +4,13 @@
 //! Public game servers list themselves on master servers.
 //! Some game servers check their game clients using the auth server.
 //!
-//! Packets from game clients are either connectionless, sequenced or fragmented in [`Packet`]:
+//! Incoming packets from game clients are either connectionless, sequenced or fragmented in [`Packet`].
+//! Outgoing packets to game clients are either:
 //! - [`ConnectionlessPacket`]
 //! - [`SequencedPacket`]
 //! - [`FragmentedPacket`]
 //!
-//! Packets from master servers and auth server are always connectionless.
+//! Packets from and to master servers and auth server are always connectionless.
 //!
 //! A connectionless outer packet contains an inner message of [`ConnectionlessMessage`]:
 //! - TODO: `GetStatusMessage`
@@ -48,7 +49,7 @@ pub struct InvalidSequencedPacketError {
     payload: Bytes,
 }
 
-/// Sequenced client packet
+/// Sequenced outgoing client packet
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct SequencedPacket {
     sequence: PacketSequenceNumber,
@@ -86,7 +87,7 @@ pub struct InvalidFragmentedPacketError {
     payload: Bytes,
 }
 
-/// Fragmented client packet
+/// Fragmented outgoing client packet
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct FragmentedPacket {
     sequence: PacketSequenceNumber,
@@ -194,7 +195,7 @@ pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError>
     Ok(packet)
 }
 
-/// Kind of [`ConnectionlessMessage`]
+/// Kind of incoming [`ConnectionlessMessage`]
 pub enum ConnectionlessCommand {
     GetStatus,
     GetInfo,
@@ -234,7 +235,7 @@ impl ConnectionlessCommand {
     }
 }
 
-/// Connectionless `connect` client message
+/// Connectionless incoming `connect` client message
 //#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ConnectMessage<KV> {
     user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
@@ -304,7 +305,7 @@ impl<KV> ConnectMessage<KV> {
     }
 }
 
-/// Connectionless [`Packet`]
+/// Connectionless incoming [`Packet`]
 pub enum ConnectionlessMessage {
     GetStatus(()),
     GetInfo(()),
