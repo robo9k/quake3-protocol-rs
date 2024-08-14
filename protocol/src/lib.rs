@@ -72,21 +72,21 @@ impl PacketKind {
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub struct InvalidConnectionlessMessageError {
+pub struct InvalidConnectionlessPacketError {
     payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct ConnectionlessMessage {
+pub struct ConnectionlessPacket {
     payload: Bytes,
 }
 
-impl ConnectionlessMessage {
-    // TODO: new_unckecked to create oversize message?
-    pub fn new<T: Into<Bytes>>(payload: T) -> Result<Self, InvalidConnectionlessMessageError> {
+impl ConnectionlessPacket {
+    // TODO: new_unckecked to create oversize packet?
+    pub fn new<T: Into<Bytes>>(payload: T) -> Result<Self, InvalidConnectionlessPacketError> {
         let payload: Bytes = payload.into();
         if payload.len() > MAX_PACKETLEN {
-            Err(InvalidConnectionlessMessageError { payload })
+            Err(InvalidConnectionlessPacketError { payload })
         } else {
             Ok(Self { payload })
         }
@@ -255,12 +255,12 @@ mod tests {
     }
 
     #[test]
-    fn connectionlessmessage_new() {
-        assert!(ConnectionlessMessage::new(vec![0; MAX_PACKETLEN + 1]).is_err());
+    fn connectionlesspacket_new() {
+        assert!(ConnectionlessPacket::new(vec![0; MAX_PACKETLEN + 1]).is_err());
 
-        assert!(ConnectionlessMessage::new(&[] as &[u8]).is_ok());
+        assert!(ConnectionlessPacket::new(&[] as &[u8]).is_ok());
 
-        assert!(ConnectionlessMessage::new(&[0xDE, 0xAD, 0xBE, 0xEF][..]).is_ok());
+        assert!(ConnectionlessPacket::new(&[0xDE, 0xAD, 0xBE, 0xEF][..]).is_ok());
     }
 
     #[test]

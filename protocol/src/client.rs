@@ -1,6 +1,6 @@
 use super::{
-    ConnectionlessMessage, FragmentInfo, FragmentLength, FragmentStart,
-    InvalidConnectionlessMessageError, InvalidFragmentLengthError, InvalidFragmentStartError,
+    ConnectionlessPacket, FragmentInfo, FragmentLength, FragmentStart,
+    InvalidConnectionlessPacketError, InvalidFragmentLengthError, InvalidFragmentStartError,
     PacketKind, PacketSequenceNumber, QPort,
 };
 use crate::net::chan::FRAGMENT_SIZE;
@@ -8,28 +8,28 @@ use bytes::{Buf, Bytes};
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub struct InvalidSequencedMessageError {
+pub struct InvalidSequencedPacketError {
     payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct SequencedMessage {
+pub struct SequencedPacket {
     sequence: PacketSequenceNumber,
     qport: QPort,
     // TODO: ioq3 has additional checksum
     payload: Bytes,
 }
 
-impl SequencedMessage {
-    // TODO: new_unchecked to create oversize message?
+impl SequencedPacket {
+    // TODO: new_unchecked to create oversize packet?
     pub fn new<T: Into<Bytes>>(
         sequence: PacketSequenceNumber,
         qport: QPort,
         payload: T,
-    ) -> Result<Self, InvalidSequencedMessageError> {
+    ) -> Result<Self, InvalidSequencedPacketError> {
         let payload: Bytes = payload.into();
         if payload.len() >= FRAGMENT_SIZE {
-            Err(InvalidSequencedMessageError { payload })
+            Err(InvalidSequencedPacketError { payload })
         } else {
             Ok(Self {
                 sequence,
@@ -54,12 +54,12 @@ impl SequencedMessage {
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub struct InvalidFragmentedMessageError {
+pub struct InvalidFragmentedPacketError {
     payload: Bytes,
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct FragmentedMessage {
+pub struct FragmentedPacket {
     sequence: PacketSequenceNumber,
     qport: QPort,
     // TODO: ioq3 has additional checksum
@@ -67,18 +67,18 @@ pub struct FragmentedMessage {
     payload: Bytes,
 }
 
-impl FragmentedMessage {
-    // TODO: new_unchecked to create oversize message?
+impl FragmentedPacket {
+    // TODO: new_unchecked to create oversize packet?
     pub fn new<T: Into<Bytes>>(
         sequence: PacketSequenceNumber,
         qport: QPort,
         fragment_start: FragmentStart,
         payload: T,
-    ) -> Result<Self, InvalidFragmentedMessageError> {
+    ) -> Result<Self, InvalidFragmentedPacketError> {
         let payload: Bytes = payload.into();
         let fragment_length = payload.len().try_into();
         match fragment_length {
-            Err(_) => Err(InvalidFragmentedMessageError { payload }),
+            Err(_) => Err(InvalidFragmentedPacketError { payload }),
             Ok(fragment_length) => Ok(Self {
                 sequence,
                 qport,
@@ -110,33 +110,33 @@ impl FragmentedMessage {
 }
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum ServerMessage {
-    Connectionless(ConnectionlessMessage),
-    Sequenced(crate::server::SequencedMessage),
-    Fragmented(crate::server::FragmentedMessage),
+pub enum ServerPacket {
+    Connectionless(ConnectionlessPacket),
+    Sequenced(crate::server::SequencedPacket),
+    Fragmented(crate::server::FragmentedPacket),
 }
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub enum InvalidServerMessageError {
-    InvalidConnectionlessMessage(#[from] InvalidConnectionlessMessageError),
-    InvalidSequencedMessage(#[from] crate::server::InvalidSequencedMessageError),
+pub enum InvalidServerPacketError {
+    InvalidConnectionlessPacket(#[from] InvalidConnectionlessPacketError),
+    InvalidSequencedPacket(#[from] crate::server::InvalidSequencedPacketError),
     InvalidFragmentStart(#[from] InvalidFragmentStartError),
     InvalidFragmentLength(#[from] InvalidFragmentLengthError),
-    InvalidFragmentedMessage(#[from] crate::server::InvalidFragmentedMessageError),
+    InvalidFragmentedPacket(#[from] crate::server::InvalidFragmentedPacketError),
 }
 
 pub fn parse_server_packet(
     mut payload: impl Buf,
-) -> Result<ServerMessage, InvalidServerMessageError> {
+) -> Result<ServerPacket, InvalidServerPacketError> {
     // FIXME: this panics if payload doesn't have a next i32, unlike e.g. nom::Err::Incomplete
     let packet_kind = PacketKind::parse(payload.get_i32_le());
 
-    let message = match packet_kind {
+    let packet = match packet_kind {
         PacketKind::Connectionless => {
             let payload = payload.copy_to_bytes(payload.remaining());
-            let message = ConnectionlessMessage::new(payload)?;
-            ServerMessage::Connectionless(message)
+            let packet = ConnectionlessPacket::new(payload)?;
+            ServerPacket::Connectionless(packet)
         }
         PacketKind::Sequenced(sequence) => {
             if sequence.is_fragmented() {
@@ -148,21 +148,21 @@ pub fn parse_server_packet(
                 // TODO: this should be an error, not a panic
                 assert_eq!(usize::from(fragment_info.length()), payload.remaining());
                 let payload = payload.copy_to_bytes(payload.remaining());
-                let message = crate::server::FragmentedMessage::new(
+                let packet = crate::server::FragmentedPacket::new(
                     sequence.number(),
                     fragment_info.start(),
                     payload,
                 )?;
-                ServerMessage::Fragmented(message)
+                ServerPacket::Fragmented(packet)
             } else {
                 let payload = payload.copy_to_bytes(payload.remaining());
-                let message = crate::server::SequencedMessage::new(sequence.number(), payload)?;
-                ServerMessage::Sequenced(message)
+                let packet = crate::server::SequencedPacket::new(sequence.number(), payload)?;
+                ServerPacket::Sequenced(packet)
             }
         }
     };
 
-    Ok(message)
+    Ok(packet)
 }
 
 #[cfg(test)]
@@ -170,15 +170,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sequencedmessage_new() -> Result<(), Box<dyn std::error::Error>> {
-        assert!(SequencedMessage::new(
+    fn sequencedpacket_new() -> Result<(), Box<dyn std::error::Error>> {
+        assert!(SequencedPacket::new(
             PacketSequenceNumber::new(42)?,
             QPort::new(27960)?,
             vec![0; FRAGMENT_SIZE]
         )
         .is_err());
 
-        assert!(SequencedMessage::new(
+        assert!(SequencedPacket::new(
             PacketSequenceNumber::new(42)?,
             QPort::new(27960)?,
             vec![0; FRAGMENT_SIZE - 1]
@@ -189,8 +189,8 @@ mod tests {
     }
 
     #[test]
-    fn fragmentedmessage_new() -> Result<(), Box<dyn std::error::Error>> {
-        assert!(FragmentedMessage::new(
+    fn fragmentedpacket_new() -> Result<(), Box<dyn std::error::Error>> {
+        assert!(FragmentedPacket::new(
             PacketSequenceNumber::new(42)?,
             QPort::new(27960)?,
             FragmentStart::new(42)?,
@@ -198,7 +198,7 @@ mod tests {
         )
         .is_err());
 
-        assert!(FragmentedMessage::new(
+        assert!(FragmentedPacket::new(
             PacketSequenceNumber::new(42)?,
             QPort::new(27960)?,
             FragmentStart::new(42)?,
@@ -213,10 +213,10 @@ mod tests {
     fn parse_server_packet_connectionless() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\xFF\xFF\xFF\xFF\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_server_packet(&mut payload)?;
-        match message {
-            ServerMessage::Connectionless(message) => {
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+        let packet = parse_server_packet(&mut payload)?;
+        match packet {
+            ServerPacket::Connectionless(packet) => {
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -228,11 +228,11 @@ mod tests {
     fn parse_server_packet_sequenced() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x00\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_server_packet(&mut payload)?;
-        match message {
-            ServerMessage::Sequenced(message) => {
-                assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+        let packet = parse_server_packet(&mut payload)?;
+        match packet {
+            ServerPacket::Sequenced(packet) => {
+                assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -244,15 +244,15 @@ mod tests {
     fn parse_server_packet_fragmented() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x80\x01\x00\x04\x00\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_server_packet(&mut payload)?;
-        match message {
-            ServerMessage::Fragmented(message) => {
-                assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
+        let packet = parse_server_packet(&mut payload)?;
+        match packet {
+            ServerPacket::Fragmented(packet) => {
+                assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
                 assert_eq!(
-                    message.fragment_info(),
+                    packet.fragment_info(),
                     FragmentInfo::new(FragmentStart::new(1)?, FragmentLength::new(4)?)
                 );
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }

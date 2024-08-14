@@ -1,15 +1,15 @@
-//! Packets and messages for game server
+//! Packets and messages for game servers
 //!
-//! A game server (or just server), is where game clients (or just clients) connect to.
+//! A game server is where game clients connect to.
 //! Public game servers list themselves on master servers.
-//! Some game servers check their clients using the auth server.
+//! Some game servers check their game clients using the auth server.
 //!
-//! Packets from client to server are either connectionless, sequenced or fragmented in [`ClientMessage`]:
-//! - [`ConnectionlessMessage`]
-//! - [`SequencedMessage`]
-//! - [`FragmentedMessage`]
+//! Packets from game clients are either connectionless, sequenced or fragmented in [`ClientPacket`]:
+//! - [`ConnectionlessPacket`]
+//! - [`SequencedPacket`]
+//! - [`FragmentedPacket`]
 //!
-//! Packets from master and auth server are always connectionless.
+//! Packets from master servers and auth server are always connectionless.
 //!
 //! A connectionless outer packet contains an inner message of [`ConnectionlessClientMessage`]:
 //! - TODO: `GetStatusMessage`
@@ -18,10 +18,10 @@
 //! - [`ConnectMessage`]
 //! - TODO:  `IpAuthorizeMessage`
 
-pub use super::ConnectionlessMessage;
+pub use super::ConnectionlessPacket;
 
 use super::{
-    FragmentInfo, FragmentLength, FragmentStart, InvalidConnectionlessMessageError,
+    FragmentInfo, FragmentLength, FragmentStart, InvalidConnectionlessPacketError,
     InvalidFragmentLengthError, InvalidFragmentStartError, InvalidQPortError, PacketKind,
     PacketSequenceNumber, QPort,
 };
@@ -41,30 +41,30 @@ use winnow::token::take_until;
 use winnow::PResult;
 use winnow::Parser;
 
-/// Error for invalid [`SequencedMessage`]
+/// Error for invalid [`SequencedPacket`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub struct InvalidSequencedMessageError {
+pub struct InvalidSequencedPacketError {
     payload: Bytes,
 }
 
-/// Sequenced client message
+/// Sequenced client packet
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct SequencedMessage {
+pub struct SequencedPacket {
     sequence: PacketSequenceNumber,
     // TODO: ioq3 has additional checksum
     payload: Bytes,
 }
 
-impl SequencedMessage {
-    // TODO: new_unchecked to create oversize message?
+impl SequencedPacket {
+    // TODO: new_unchecked to create oversize packet?
     pub fn new<T: Into<Bytes>>(
         sequence: PacketSequenceNumber,
         payload: T,
-    ) -> Result<Self, InvalidSequencedMessageError> {
+    ) -> Result<Self, InvalidSequencedPacketError> {
         let payload: Bytes = payload.into();
         if payload.len() >= FRAGMENT_SIZE {
-            Err(InvalidSequencedMessageError { payload })
+            Err(InvalidSequencedPacketError { payload })
         } else {
             Ok(Self { sequence, payload })
         }
@@ -79,33 +79,33 @@ impl SequencedMessage {
     }
 }
 
-/// Error for invalid [`FragmentedMessage`]
+/// Error for invalid [`FragmentedPacket`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub struct InvalidFragmentedMessageError {
+pub struct InvalidFragmentedPacketError {
     payload: Bytes,
 }
 
-/// Fragmented client message
+/// Fragmented client packet
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub struct FragmentedMessage {
+pub struct FragmentedPacket {
     sequence: PacketSequenceNumber,
     // TODO: ioq3 has additional checksum
     fragment_info: FragmentInfo,
     payload: Bytes,
 }
 
-impl FragmentedMessage {
-    // TODO: new_unchecked to create oversize message?
+impl FragmentedPacket {
+    // TODO: new_unchecked to create oversize packet?
     pub fn new<T: Into<Bytes>>(
         sequence: PacketSequenceNumber,
         fragment_start: FragmentStart,
         payload: T,
-    ) -> Result<Self, InvalidFragmentedMessageError> {
+    ) -> Result<Self, InvalidFragmentedPacketError> {
         let payload: Bytes = payload.into();
         let fragment_length = payload.len().try_into();
         match fragment_length {
-            Err(_) => Err(InvalidFragmentedMessageError { payload }),
+            Err(_) => Err(InvalidFragmentedPacketError { payload }),
             Ok(fragment_length) => Ok(Self {
                 sequence,
                 fragment_info: FragmentInfo::new(fragment_start, fragment_length),
@@ -133,36 +133,36 @@ impl FragmentedMessage {
 
 // FIXME: this is also kinda used for connectionless master and auth server packets
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
-pub enum ClientMessage {
-    Connectionless(ConnectionlessMessage),
-    Sequenced(crate::client::SequencedMessage),
-    Fragmented(crate::client::FragmentedMessage),
+pub enum ClientPacket {
+    Connectionless(ConnectionlessPacket),
+    Sequenced(crate::client::SequencedPacket),
+    Fragmented(crate::client::FragmentedPacket),
 }
 
-/// Parse error for [`ClientMessage`]
+/// Parse error for [`ClientPacket`]
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
-pub enum InvalidClientMessageError {
-    InvalidConnectionlessMessage(#[from] InvalidConnectionlessMessageError),
-    InvalidSequencedMessage(#[from] crate::client::InvalidSequencedMessageError),
+pub enum InvalidClientPacketError {
+    InvalidConnectionlessPacket(#[from] InvalidConnectionlessPacketError),
+    InvalidSequencedPacket(#[from] crate::client::InvalidSequencedPacketError),
     InvalidQPort(#[from] InvalidQPortError),
     InvalidFragmentStart(#[from] InvalidFragmentStartError),
     InvalidFragmentLength(#[from] InvalidFragmentLengthError),
-    InvalidFragmentedMessage(#[from] crate::client::InvalidFragmentedMessageError),
+    InvalidFragmentedPacket(#[from] crate::client::InvalidFragmentedPacketError),
 }
 
 // FIXME: this is also used for master and auth server packets
 pub fn parse_client_packet(
     mut payload: impl Buf,
-) -> Result<ClientMessage, InvalidClientMessageError> {
+) -> Result<ClientPacket, InvalidClientPacketError> {
     // FIXME: this panics if payload doesn't have a next i32, unlike e.g. nom::Err::Incomplete
     let packet_kind = PacketKind::parse(payload.get_i32_le());
 
-    let message = match packet_kind {
+    let packet = match packet_kind {
         PacketKind::Connectionless => {
             let payload = payload.copy_to_bytes(payload.remaining());
-            let message = ConnectionlessMessage::new(payload)?;
-            ClientMessage::Connectionless(message)
+            let packet = ConnectionlessPacket::new(payload)?;
+            ClientPacket::Connectionless(packet)
         }
         PacketKind::Sequenced(sequence) => {
             // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
@@ -177,23 +177,23 @@ pub fn parse_client_packet(
                 // TODO: this should be an error, not a panic
                 assert_eq!(usize::from(fragment_info.length()), payload.remaining());
                 let payload = payload.copy_to_bytes(payload.remaining());
-                let message = crate::client::FragmentedMessage::new(
+                let packet = crate::client::FragmentedPacket::new(
                     sequence.number(),
                     qport,
                     fragment_info.start(),
                     payload,
                 )?;
-                ClientMessage::Fragmented(message)
+                ClientPacket::Fragmented(packet)
             } else {
                 let payload = payload.copy_to_bytes(payload.remaining());
-                let message =
-                    crate::client::SequencedMessage::new(sequence.number(), qport, payload)?;
-                ClientMessage::Sequenced(message)
+                let packet =
+                    crate::client::SequencedPacket::new(sequence.number(), qport, payload)?;
+                ClientPacket::Sequenced(packet)
             }
         }
     };
 
-    Ok(message)
+    Ok(packet)
 }
 
 /// Kind of [`ConnectionlessClientMessage`]
@@ -294,10 +294,10 @@ impl<KV> ConnectMessage<KV> {
         &self.user_info
     }
 
-    pub fn parse_message(
-        message: &ConnectionlessMessage,
+    pub fn parse_packet(
+        packet: &ConnectionlessPacket,
     ) -> Result<ConnectMessage<InfoString>, ParseConnectMessageError> {
-        let payload = message.payload();
+        let payload = packet.payload();
         let mut payload = &payload.as_ref();
         let (connect_message,) = seq!(_: recognize_connect_payload(), parse_connect_payload)
             .parse(payload)
@@ -306,8 +306,7 @@ impl<KV> ConnectMessage<KV> {
     }
 }
 
-// FIXME: this name is confusing, maybe have outer Packet vs. inner Message in all the modules?
-/// Kind of connectionless [`ClientMessage`]
+/// Kind of connectionless [`ClientPacket`]
 pub enum ConnectionlessClientMessage {
     GetStatus(()),
     GetInfo(()),
@@ -321,13 +320,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn sequencedmessage_new() -> Result<(), Box<dyn std::error::Error>> {
+    fn sequencedpacket_new() -> Result<(), Box<dyn std::error::Error>> {
         assert!(
-            SequencedMessage::new(PacketSequenceNumber::new(42)?, vec![0; FRAGMENT_SIZE]).is_err()
+            SequencedPacket::new(PacketSequenceNumber::new(42)?, vec![0; FRAGMENT_SIZE]).is_err()
         );
 
         assert!(
-            SequencedMessage::new(PacketSequenceNumber::new(42)?, vec![0; FRAGMENT_SIZE - 1])
+            SequencedPacket::new(PacketSequenceNumber::new(42)?, vec![0; FRAGMENT_SIZE - 1])
                 .is_ok()
         );
 
@@ -335,15 +334,15 @@ mod tests {
     }
 
     #[test]
-    fn fragmentedmessage_new() -> Result<(), Box<dyn std::error::Error>> {
-        assert!(FragmentedMessage::new(
+    fn fragmentedpacket_new() -> Result<(), Box<dyn std::error::Error>> {
+        assert!(FragmentedPacket::new(
             PacketSequenceNumber::new(42)?,
             FragmentStart::new(42)?,
             vec![0; FRAGMENT_SIZE + 1]
         )
         .is_err());
 
-        assert!(FragmentedMessage::new(
+        assert!(FragmentedPacket::new(
             PacketSequenceNumber::new(42)?,
             FragmentStart::new(42)?,
             vec![0; FRAGMENT_SIZE]
@@ -357,10 +356,10 @@ mod tests {
     fn parse_client_packet_connectionless() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\xFF\xFF\xFF\xFF\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_client_packet(&mut payload)?;
-        match message {
-            ClientMessage::Connectionless(message) => {
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+        let packet = parse_client_packet(&mut payload)?;
+        match packet {
+            ClientPacket::Connectionless(packet) => {
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -372,12 +371,12 @@ mod tests {
     fn parse_client_packet_sequenced() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x00\x9A\x02\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_client_packet(&mut payload)?;
-        match message {
-            ClientMessage::Sequenced(message) => {
-                assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
-                assert_eq!(message.qport(), QPort::new(666)?);
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+        let packet = parse_client_packet(&mut payload)?;
+        match packet {
+            ClientPacket::Sequenced(packet) => {
+                assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
+                assert_eq!(packet.qport(), QPort::new(666)?);
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -389,16 +388,16 @@ mod tests {
     fn parse_client_packet_fragmented() -> Result<(), Box<dyn std::error::Error>> {
         let mut payload = &b"\x00\x00\x00\x80\x9A\x02\x01\x00\x04\x00\xDE\xAD\xBE\xEF"[..];
 
-        let message = parse_client_packet(&mut payload)?;
-        match message {
-            ClientMessage::Fragmented(message) => {
-                assert_eq!(message.sequence(), PacketSequenceNumber::new(0)?);
-                assert_eq!(message.qport(), QPort::new(666)?);
+        let packet = parse_client_packet(&mut payload)?;
+        match packet {
+            ClientPacket::Fragmented(packet) => {
+                assert_eq!(packet.sequence(), PacketSequenceNumber::new(0)?);
+                assert_eq!(packet.qport(), QPort::new(666)?);
                 assert_eq!(
-                    message.fragment_info(),
+                    packet.fragment_info(),
                     FragmentInfo::new(FragmentStart::new(1)?, FragmentLength::new(4)?)
                 );
-                assert_eq!(message.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
+                assert_eq!(packet.payload(), &b"\xDE\xAD\xBE\xEF"[..]);
             }
             _ => panic!(),
         }
@@ -430,8 +429,8 @@ mod tests {
         "
         );
 
-        let message = ConnectionlessMessage::new(&encoded_bytes[..])?;
-        let connect_message = ConnectMessage::<InfoString>::parse_message(&message)?;
+        let packet = ConnectionlessPacket::new(&encoded_bytes[..])?;
+        let connect_message = ConnectMessage::<InfoString>::parse_packet(&packet)?;
 
         let user_info = connect_message.user_info();
 
