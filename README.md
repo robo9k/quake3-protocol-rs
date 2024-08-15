@@ -18,7 +18,7 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 
 - ✔️ connectionless
 
-##### Client
+##### Game client
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
@@ -72,7 +72,7 @@ You might be interested in [the `dpmaster-rs` project](https://github.com/robo9k
 - ❌ sequenced
 - ✔️ fragmented
 
-#### Client
+#### Game client
 
 | command                 | serialize | deserialize |
 | ----------------------- | :-------: | :---------: |
