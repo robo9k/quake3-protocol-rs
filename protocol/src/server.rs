@@ -236,8 +236,26 @@ impl ConnectionlessCommand {
 }
 
 /// Connectionless incoming `connect` client message
+// TODO: Expose intermediate CompressedConnectMessage for fuzzing and zip-bomb defusal?
 //#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 pub struct ConnectMessage<KV> {
+    // TODO: UserInfo struct with parsed
+    // - protocol
+    // - challenge
+    // - qport
+    // - rate
+    // - snaps
+    // - cl_anonymous
+    // - cl_voipProtocol
+    // - cl_guid
+    // - password
+    //
+    // and possibly more. Or split into engine/qagame (id/io)?
+    // At least `protocol` will be required for later id/io split parsers and structs
+    // `challenge` and `protocol` are in `challengeResponse` server → client message
+    // `qport` is in sequenced client → server packets
+    //
+    // Also note that the client connect userinfo differs from the calculated server userinfo, e.g. with "ip":"localhost"
     user_info: InfoMap<KV, KV, { INFO_LIMIT }>,
 }
 
