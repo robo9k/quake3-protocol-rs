@@ -2,6 +2,10 @@ use crate::net::chan::{FRAGMENT_BIT, FRAGMENT_SIZE, MAX_PACKETLEN};
 use bytes::Bytes;
 use std::ffi::{c_int, c_ushort};
 
+use winnow::binary::le_i32;
+use winnow::error::{AddContext, ParserError, StrContext, StrContextValue};
+use winnow::Parser;
+
 pub mod client;
 pub mod net;
 pub mod server;
@@ -68,6 +72,25 @@ impl PacketKind {
             Self::Sequenced(PacketSequence::new(bits))
         }
     }
+}
+
+pub(crate) fn parse_packetkind<'s, E>() -> impl Parser<&'s [u8], PacketKind, E>
+where
+    E: AddContext<&'s [u8], StrContext> + ParserError<&'s [u8]>,
+{
+    le_i32
+        // this context is relevant if input is empty,
+        // incomplete (but not in the winnow sense)
+        .context(StrContext::Label("packet kind"))
+        // having "expected a, b" is slightly misleading
+        // if parsing le_i32 / c_int is infallible hereafter?
+        .context(StrContext::Expected(StrContextValue::Description(
+            "connectionless",
+        )))
+        .context(StrContext::Expected(StrContextValue::Description(
+            "sequenced",
+        )))
+        .map(PacketKind::parse)
 }
 
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
@@ -204,6 +227,8 @@ impl QPort {
 mod tests {
     use super::*;
 
+    use winnow::error::ContextError;
+
     #[test]
     fn packetsequencenumber_new() {
         assert!(PacketSequenceNumber::new(CONNECTIONLESS_SEQUENCE).is_err());
@@ -252,6 +277,21 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_parse_packetkind() {
+        let empty = b"";
+        let error = "invalid packet kind\nexpected connectionless, sequenced";
+        assert_eq!(
+            parse_packetkind::<ContextError>()
+                .parse_next(&mut &empty[..])
+                .unwrap_err()
+                .into_inner()
+                .unwrap()
+                .to_string(),
+            error
+        );
     }
 
     #[test]
