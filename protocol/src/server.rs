@@ -152,6 +152,17 @@ pub enum InvalidPacketError {
     InvalidFragmentedPacket(#[from] crate::client::InvalidFragmentedPacketError),
 }
 
+// TODO: this function starts parsing things the user might not need nor want (performance, security)
+// specifically if implementing a "master client" (net/client.rs), we do not need any PacketKind::Sequenced
+// we should probably have something like: peek_packet(Buf) -> (PacketKind, Fn() -> Result<Packet, InvalidPacketError>)
+// see https://rust-lang.github.io/api-guidelines/flexibility.html#c-intermediate but keep winnow out of our public API
+// parts of the crate should also be fatures, e.g. "master client" which means some structs are missing and parsing returns "this is unsupported (but known)" errors
+// the closure IF called will continue parsing the remaining buffer into e.g. PacketKind::Fragmented / Packet::Sequenced
+// the closure avoids the user handling the buffer and calling pub methods for partially parsed inputs
+// this could be used for the next onion layer of peeking the command kind (first lexed token), then CONDITIONALLY parsing the remaining command message / tokens, i.e.
+// fn peek_command(ConnectionlessPacket) -> (ConnectionlessCommandKind, Fn() -> Result<ConnectionlessCommand, InvalidCommandError>)
+// for the sequenced packets that closure probably needs to take some (mutable?) TBD client/server netchan state (challenge, sequence +/ server id, last command)
+// as input to xor unscamble/decode idq3 and checksum ioq3
 /// Parse incoming packet
 pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError> {
     // FIXME: this panics if payload doesn't have a next i32, unlike e.g. nom::Err::Incomplete
