@@ -150,6 +150,8 @@ pub enum InvalidPacketError {
     InvalidFragmentStart(#[from] InvalidFragmentStartError),
     InvalidFragmentLength(#[from] InvalidFragmentLengthError),
     InvalidFragmentedPacket(#[from] crate::client::InvalidFragmentedPacketError),
+
+    InvalidSize,
 }
 
 // TODO: this function starts parsing things the user might not need nor want (performance, security)
@@ -165,7 +167,10 @@ pub enum InvalidPacketError {
 // as input to xor unscamble/decode idq3 and checksum ioq3
 /// Parse incoming packet
 pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError> {
-    // FIXME: this panics if payload doesn't have a next i32, unlike e.g. nom::Err::Incomplete
+    // the bytes crate would be nicer with fallible try_get_* methods https://github.com/tokio-rs/bytes/issues/254
+    if payload.remaining() < core::mem::size_of::<i32>() {
+        return Err(InvalidPacketError::InvalidSize);
+    }
     let packet_kind = PacketKind::parse(payload.get_i32_le());
 
     let packet = match packet_kind {
@@ -175,17 +180,26 @@ pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError>
             Packet::Connectionless(packet)
         }
         PacketKind::Sequenced(sequence) => {
-            // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
+            if payload.remaining() < core::mem::size_of::<u16>() {
+                return Err(InvalidPacketError::InvalidSize);
+            }
             let qport = QPort::new(payload.get_u16_le())?;
 
             if sequence.is_fragmented() {
-                // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
+                if payload.remaining() < core::mem::size_of::<u16>() {
+                    return Err(InvalidPacketError::InvalidSize);
+                }
                 let fragment_start = FragmentStart::new(payload.get_u16_le())?;
-                // FIXME: this panics if payload doesn't have a next u16, unlike e.g. nom::Err::Incomplete
+
+                if payload.remaining() < core::mem::size_of::<u16>() {
+                    return Err(InvalidPacketError::InvalidSize);
+                }
                 let fragment_length = FragmentLength::new(payload.get_u16_le())?;
+
                 let fragment_info = FragmentInfo::new(fragment_start, fragment_length);
                 // TODO: this should be an error, not a panic
                 assert_eq!(usize::from(fragment_info.length()), payload.remaining());
+
                 let payload = payload.copy_to_bytes(payload.remaining());
                 let packet = crate::client::FragmentedPacket::new(
                     sequence.number(),
@@ -378,6 +392,14 @@ mod tests {
         .is_ok());
 
         Ok(())
+    }
+
+    #[test]
+    fn parse_packet_invalidsize() {
+        let mut payload = &b"\xFF"[..];
+
+        let packet = parse_packet(&mut payload);
+        assert!(matches!(packet, Err(InvalidPacketError::InvalidSize)));
     }
 
     #[test]
