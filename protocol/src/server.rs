@@ -141,6 +141,7 @@ pub enum Packet {
 }
 
 /// Parse error for [`Packet`]
+// this is an ugly mixed bag for all kinds of packets, see comment for parse_packet() below
 #[derive(thiserror::Error, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug)]
 #[error("is invalid")]
 pub enum InvalidPacketError {
@@ -154,15 +155,17 @@ pub enum InvalidPacketError {
     InvalidSize,
 }
 
-// TODO: this function starts parsing things the user might not need nor want (performance, security)
+// TODO: this function starts parsing/copying things the user might not need nor want (performance, security)
 // specifically if implementing a "master client" (net/client.rs), we do not need any PacketKind::Sequenced
-// we should probably have something like: peek_packet(Buf) -> (PacketKind, Fn() -> Result<Packet, InvalidPacketError>)
+// we should probably have something like: Packet::parse_kind(mut Buf) -> (PacketKind, impl Fn() -> Result<Packet, InvalidPacketError>)
+// but this gets ugly very quick with Box and moving Buf: enum PacketParser { Connectionless(Box<dyn Fn() -> Result<ConnectionlessPacket, ConnectionlessPacketError>>), }
+// or even complex type state for the overall parser
 // see https://rust-lang.github.io/api-guidelines/flexibility.html#c-intermediate but keep winnow out of our public API
-// parts of the crate should also be fatures, e.g. "master client" which means some structs are missing and parsing returns "this is unsupported (but known)" errors
-// the closure IF called will continue parsing the remaining buffer into e.g. PacketKind::Fragmented / Packet::Sequenced
+// parts of the crate should also be features, e.g. "master client" which means some structs are missing and parsing returns "this is unsupported (but known)" errors
+// the closure IF called will continue parsing the remaining buffer into e.g. Packet::Fragmented / Packet::Sequenced
 // the closure avoids the user handling the buffer and calling pub methods for partially parsed inputs
 // this could be used for the next onion layer of peeking the command kind (first lexed token), then CONDITIONALLY parsing the remaining command message / tokens, i.e.
-// fn peek_command(ConnectionlessPacket) -> (ConnectionlessCommandKind, Fn() -> Result<ConnectionlessCommand, InvalidCommandError>)
+// fn ConnectionlessPacket::parse_command(&self) -> (ConnectionlessCommandKind, impl Fn() -> Result<ConnectionlessCommand, InvalidCommandError>)
 // for the sequenced packets that closure probably needs to take some (mutable?) TBD client/server netchan state (challenge, sequence +/ server id, last command)
 // as input to xor unscamble/decode idq3 and checksum ioq3
 /// Parse incoming packet
@@ -175,6 +178,7 @@ pub fn parse_packet(mut payload: impl Buf) -> Result<Packet, InvalidPacketError>
 
     let packet = match packet_kind {
         PacketKind::Connectionless => {
+            // ext trait copy_remaining_to_bytes() would also be nicer for bytes crate
             let payload = payload.copy_to_bytes(payload.remaining());
             let packet = ConnectionlessPacket::new(payload)?;
             Packet::Connectionless(packet)
